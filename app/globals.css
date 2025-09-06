@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base typography */
+:root {
+  color-scheme: light;
+}
+html, body {
+  @apply bg-paper text-ink;
+  font-feature-settings: "ss01";
+}
+a { @apply underline decoration-ink/20 underline-offset-4 hover:decoration-ink; }
+.container { @apply max-w-6xl mx-auto px-4; }
+.btn {
+  @apply inline-flex items-center justify-center rounded-none border border-ink px-5 py-3 text-sm tracking-wide uppercase;
+}
+.btn-primary {
+  @apply bg-ink text-paper hover:bg-paper hover:text-ink transition;
+}
+.section {
+  @apply py-16;
+}
+.h1 { @apply text-4xl md:text-5xl font-semibold tracking-tight; }
+.h2 { @apply text-2xl md:text-3xl font-semibold; }
+.h3 { @apply text-xl md:text-2xl font-medium; }
+.card { @apply border border-ink/10 p-6 bg-paper; }
+input, select, textarea {
+  @apply w-full border border-ink/20 bg-paper px-3 py-2 focus:outline-none focus:border-ink;
+}
+label { @apply text-sm uppercase tracking-wider text-ash; }
+small { @apply text-ash; }
