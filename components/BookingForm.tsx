@@ -9,7 +9,9 @@ type FormState = {
   email: string;
   phone: string;
   notes?: string;
+  company?: string;
 };
+
 
 export default function BookingForm() {
   const [loading, setLoading] = useState(false);
@@ -42,6 +44,10 @@ export default function BookingForm() {
       setLoading(false);
     }
   }
+<div style={{display: "none"}} aria-hidden="true">
+  <label>Company</label>
+  <input type="text" value={form.company|| ""} onChange={e=>setForm({...form, company:e.target.value})} />
+</div>
 
   return (
     <form onSubmit={submit} className="grid gap-4 max-w-xl">
