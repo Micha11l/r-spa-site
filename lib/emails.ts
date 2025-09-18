@@ -91,6 +91,11 @@ export async function sendBookingEmails(params: BookingEmailParams) {
     subject: `New booking · ${params.service} · ${whenStr} · ${params.name}`,
     text: ownerText,
     replyTo: `${params.name} <${params.email}>`, // 你点“回复”就直接回客户
+
+    envelope: {
+      from: process.env.ZOHO_SMTP_USER!,
+      to: [owner],
+    },
   });
 
   // ===== 客户邮件（附 .ics；可选 bcc 给店家用于留底）=====
@@ -133,5 +138,10 @@ export async function sendBookingEmails(params: BookingEmailParams) {
         contentType: "text/calendar; charset=utf-8; method=REQUEST",
       },
     ],
+    envelope: {
+      from: process.env.ZOHO_SMTP_USER!,
+      to: [params.email],
+      ...(BCC_OWNER ? { bcc: owner } : {}),
+    },
   });
 }
