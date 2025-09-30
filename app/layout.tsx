@@ -4,6 +4,15 @@ import Script from "next/script";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { Playfair_Display, Manrope } from "next/font/google";
+
+// 高级标题用 Playfair，正文用 Manrope
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-display",
+});
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" });
 
 const SITE_NAME = "Rejuvenessence";
 const SITE_URL =
@@ -11,42 +20,31 @@ const SITE_URL =
 
 // ===== Meta (Next.js App Router) =====
 export const metadata: Metadata = {
-  // 页面 <title>：页面自定义标题 | Rejuvenessence
+  // 统一去掉 “Private/Wellness”，默认标题直接体现地区信息
   title: {
-    default: `${SITE_NAME} | Private Wellness Studio`,
+    default: `${SITE_NAME} — Spa in Keswick / Toronto`,
     template: `%s | ${SITE_NAME}`,
   },
 
-  // 站点描述（你选的第 1 条）
+  // 你选的 #1 描述，精简到搜索摘要友好长度
   description:
-    "Private spa with hot tub & sauna, food & drinks bar, and advanced laser therapy devices. Open 9am–8pm in Keswick (Toronto area). Book online.",
+    "Minimalist, high-end spa in Keswick/Toronto. Hydrotherapy (Hot Tub & Sauna), classic massages, and modern light therapies such as Seqex & plasma lights.",
 
-  // 用于生成绝对 URL（OG、Sitemap 等）
   metadataBase: new URL(SITE_URL),
-
-  // Canonical
   alternates: { canonical: "/" },
 
-  // Open Graph / link 预览
   openGraph: {
     title: SITE_NAME,
     description:
-      "Private spa with hot tub & sauna, food & drinks bar, and advanced laser therapy devices. Open 9am–8pm in Keswick (Toronto area). Book online.",
+      "Minimalist, high-end spa in Keswick/Toronto. Hydrotherapy (Hot Tub & Sauna), classic massages, and modern light therapies such as Seqex & plasma lights.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_CA",
     type: "website",
-    images: [
-      // 如果有更合适的分享图，替换掉 /logo.jpg
-      { url: "/logo.jpg", width: 1200, height: 630, alt: SITE_NAME },
-    ],
+    images: [{ url: "/logo.jpg", width: 1200, height: 630, alt: SITE_NAME }],
   },
 
-  // 基础 robots
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
 };
 
 // ===== App Shell =====
@@ -91,9 +89,8 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en">
-      <body>
-        {/* 副标题可在导航等位置体现，如需直接显示可在 Navbar 内处理 */}
+    <html lang="en" className={`${manrope.variable} ${playfair.variable}`}>
+      <body className="antialiased text-zinc-900">
         <Navbar />
         <main>{children}</main>
         <Footer />

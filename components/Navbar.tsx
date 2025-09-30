@@ -1,27 +1,17 @@
-"use client";
+// components/Navbar.tsx （只展示需要新增的片段）
 import Link from "next/link";
-import { motion } from "framer-motion";
 
 export default function Navbar() {
   return (
-    <header className="border-b border-ink/10 sticky top-0 z-50 bg-paper/80 backdrop-blur">
-      <div className="container flex items-center justify-between h-16">
-        <Link href="/" className="flex items-center gap-3">
-          <motion.img
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            src="/logo.jpg"
-            alt="R Spa Logo"
-            className="h-8 w-8 object-contain"
-          />
-          <span className="font-semibold tracking-wide">R Spa</span>
-        </Link>
-        <nav className="flex items-center gap-6 text-sm uppercase tracking-wider">
-          <Link href="/services">Services</Link>
-          <Link href="/booking" className="btn btn-primary no-underline">Book Now</Link>
-          <Link href="/faq">FAQ</Link>
-          <Link href="/policies">Policies</Link>
+    <header className="px-4 py-4 border-b bg-white/80 backdrop-blur">
+      <div className="mx-auto max-w-6xl flex items-center justify-between">
+        <Link href="/" className="font-semibold">Rejuvenessence</Link>
+        <nav className="flex items-center gap-5 text-sm">
+          <Link href="/seqex">Therapies</Link>
+          <Link href="/spa">Spa</Link>
+          <Link href="/amenities">Sauna & Hot Tub</Link>
+          <Link href="/events">Events</Link>
+          <Link href="/booking" className="rounded-lg bg-black px-3 py-2 text-white">Book</Link>
         </nav>
       </div>
     </header>
