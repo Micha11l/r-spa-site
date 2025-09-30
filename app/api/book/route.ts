@@ -1,123 +1,137 @@
+// app/api/book/route.ts
 import { NextResponse } from "next/server";
-import dayjs from "dayjs";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import tz from "dayjs/plugin/timezone";
 import { sendBookingEmails } from "@/lib/emails";
 
+dayjs.extend(utc);
+dayjs.extend(tz);
+
+const TZ = process.env.TIMEZONE || "America/Toronto";
+
+// ---- 服务清单（与前端一致） ----
+export const THERAPIES = [
+  "Seqex Session (27m)",
+  "Seqex Session – Double (58m)",
+  "Seqex Personalized Test (80m)",
+  "Personalized Test & Card (80m)",
+  "ICR Treatment (12m)",
+  "Amygdala Flush (custom)",
+  "Special Treatment (custom)",
+  "RX1 Seat (20m)",
+  "Vitamin D UVB (4m)",
+  "LifeForce (60m)",
+] as const;
+
+export const SPA = [
+  "Spa – Head (45m)",
+  "Spa – Back & Shoulders (60m)",
+  "Spa – Full Body (90m)",
+  "Spa – Hot Stone (75m)",
+] as const;
+
+export const OTHER = ["Private Event / Party (inquiry only)"] as const;
+
+export const SERVICES = [...THERAPIES, ...SPA, ...OTHER] as const;
+
+// ---- 每个服务的时长（分钟）----
+const DURATIONS: Record<(typeof SERVICES)[number], number> = {
+  // Therapies
+  "Seqex Session (27m)": 27,
+  "Seqex Session – Double (58m)": 58,
+  "Seqex Personalized Test (80m)": 80,
+  "Personalized Test & Card (80m)": 80,
+  "ICR Treatment (12m)": 12,
+  "Amygdala Flush (custom)": 60, // 自定义默认 60
+  "Special Treatment (custom)": 60, // 自定义默认 60
+  "RX1 Seat (20m)": 20,
+  "Vitamin D UVB (4m)": 4,
+  "LifeForce (60m)": 60,
+
+  // Spa
+  "Spa – Head (45m)": 45,
+  "Spa – Back & Shoulders (60m)": 60,
+  "Spa – Full Body (90m)": 90,
+  "Spa – Hot Stone (75m)": 75,
+
+  // Other
+  "Private Event / Party (inquiry only)": 120, // 仅作占位
+};
+
+// ---- 简单限流（同一 IP，3 分钟内最多 RL_MAX 次）----
+const RL_MAX = Number(process.env.RL_MAX || 5);
+const WINDOW_MS = 3 * 60 * 1000;
+const hits = new Map<string, number[]>();
+
+function ratelimit(ip: string) {
+  const now = Date.now();
+  const arr = (hits.get(ip) || []).filter((t) => now - t < WINDOW_MS);
+  arr.push(now);
+  hits.set(ip, arr);
+  return arr.length <= RL_MAX;
+}
+
+// ---- 校验 ----
 const schema = z.object({
-  service: z.string().min(2),
-  date: z.string(),  // YYYY-MM-DD
-  time: z.string(),  // HH:mm
+  service: z.enum(SERVICES),
+  date: z.string().min(8), // YYYY-MM-DD
+  time: z.string().min(4), // HH:mm
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(6),
-  notes: z.string().optional(),
-  company: z.string().optional(), // 蜜罐字段（前端隐藏）
+  notes: z.string().optional().default(""),
+  company: z.string().optional(), // 蜜罐
 });
-
-function getIP(req: Request) {
-  const xff = req.headers.get("x-forwarded-for") || "";
-  return xff.split(",")[0].trim() || "unknown";
-}
-
-const SERVICE_DURATIONS: Record<string, number> = {
-  "Seqex Session (60m)": 60,
-  "Seqex + Plasma Lights (75m)": 75,
-  "Plasma Lights – Targeted (20m)": 20,
-  "RX6 Full Body (40m)": 40,
-  "RX1 Seat (2 x 10m)": 20,
-  "Solarc Vitamin D UVB (4m)": 4,
-  "Vibration + Thigh Scanner (20m)": 20
-};
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-
-    // 1) 蜜罐：机器人会填这个隐藏字段
-    if (body?.company) {
-      return NextResponse.json({ error: "Rejected" }, { status: 400 });
-    }
-
-    // 2) 限流：同 IP 最近 1 小时超过 5 次就拒绝
-    const ip = getIP(req);
-    const oneHourAgoISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-
-    const { data: recent, error: rlErr } = await supabaseAdmin
-      .from("booking_requests")
-      .select("id")
-      .gte("created_at", oneHourAgoISO)
-      .eq("ip", ip);
-
-    if (rlErr) throw rlErr;
-    if ((recent?.length ?? 0) >= 5) {
-      return NextResponse.json({ error: "Too many requests. Please try later." }, { status: 429 });
-    }
-
-    // 3) 记录本次请求
-    await supabaseAdmin.from("booking_requests").insert({
-      ip,
-      email: body?.email || null
-    });
-
-    // 4) 校验输入
-    const parsed = schema.parse(body);
-
-    // 5) 计算起止时间
-    const duration = SERVICE_DURATIONS[parsed.service] || 60;
-    const start = dayjs(`${parsed.date}T${parsed.time}:00`);
-    const end = start.add(duration, "minute");
-    const startISO = start.toDate().toISOString();
-    const endISO = end.toDate().toISOString();
-
-    // 6) 冲突检测：已有(start < newEnd && end > newStart)
-    const { data: overlaps, error: ovErr } = await supabaseAdmin
-      .from("bookings")
-      .select("id")
-      .lte("start_ts", endISO)
-      .gte("end_ts", startISO)
-      .neq("status", "cancelled");
-
-    if (ovErr) throw ovErr;
-    if ((overlaps?.length ?? 0) > 0) {
+    const ip =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0]?.trim() ||
+      "0.0.0.0";
+    if (!ratelimit(ip)) {
       return NextResponse.json(
-        { error: "Selected time is no longer available. Please choose another slot." },
-        { status: 409 }
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
       );
     }
 
-    // 7) 写入预约
-    const { data, error } = await supabaseAdmin
-      .from("bookings")
-      .insert({
-        service_name: parsed.service,
-        start_ts: startISO,
-        end_ts: endISO,
-        customer_name: parsed.name,
-        customer_email: parsed.email,
-        customer_phone: parsed.phone,
-        notes: parsed.notes || null,
-        status: "pending"
-      })
-      .select()
-      .single();
+    const body = await req.json();
 
-    if (error) throw error;
+    // 蜜罐：若被填，直接返回成功（不发邮件）
+    if (body?.company) {
+      return NextResponse.json({ ok: true });
+    }
 
-    // 8) 发邮件通知
+    const data = schema.parse(body);
+
+    // 组合开始/结束时间（转为指定时区）
+    const start = dayjs.tz(
+      `${data.date} ${data.time}`,
+      "YYYY-MM-DD HH:mm",
+      TZ
+    );
+    if (!start.isValid()) {
+      return NextResponse.json({ error: "Invalid date/time" }, { status: 400 });
+    }
+    const minutes = DURATIONS[data.service] ?? 60;
+    const end = start.add(minutes, "minute");
+
     await sendBookingEmails({
-      service: parsed.service,
-      startISO,
-      endISO,
-      name: parsed.name,
-      email: parsed.email,
-      phone: parsed.phone,
-      notes: parsed.notes
+      service: data.service,
+      startISO: start.toISOString(),
+      endISO: end.toISOString(),
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      notes: data.notes,
     });
 
-    return NextResponse.json({ ok: true, id: data.id });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[/api/book] error:", e);
-    return NextResponse.json({ error: e.message || "Request failed" }, { status: 400 });
+    const msg = e?.issues ? JSON.stringify(e.issues) : e?.message || "Error";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
