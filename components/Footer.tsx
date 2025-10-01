@@ -1,30 +1,57 @@
-import Container from "./Container";
+// components/Footer.tsx
+import Link from "next/link";
+
 export default function Footer() {
   return (
-    <footer className="border-t border-ink/10 py-10 mt-16">
-      <Container>
-        <div className="grid md:grid-cols-3 gap-6 text-sm">
-          <div>
-            <div className="font-semibold">R Spa</div>
-            <div>Private wellness studio · {process.env.SITE_CITY || "North of HW404, Toronto"}</div>
-            <div className="mt-2">Email: {process.env.SITE_PUBLIC_EMAIL || "aaa@example.com"}</div>
-            <div>Phone: {process.env.SITE_PUBLIC_PHONE || "123-456-7890"}</div>
-          </div>
-          <div>
-            <div className="font-semibold">Info</div>
-            <ul className="space-y-1">
-              <li><a href="/services">Services</a></li>
-              <li><a href="/booking">Booking</a></li>
-              <li><a href="/faq">FAQ</a></li>
-              <li><a href="/policies">Policies & Disclaimer</a></li>
-            </ul>
-          </div>
-          <div className="text-ash">
-            Not a medical service. Wellness sessions only. See policies for details.
+    <footer className="border-t">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 grid gap-8 md:grid-cols-3">
+        {/* Brand & Contact */}
+        <div>
+          <h3 className="text-lg font-semibold">Rejuvenessence</h3>
+          <address className="not-italic mt-2 text-sm text-zinc-600 leading-6">
+            281 Parkwood Ave.<br />
+            Keswick, ON L4P 2X4<br />
+            Canada
+          </address>
+          <div className="mt-3 space-y-1 text-sm">
+            <div>
+              Phone:{" "}
+              <a className="underline underline-offset-2" href="tel:+12892211650">
+                +1 (289) 221-1650
+              </a>
+            </div>
+            <div>
+              Email:{" "}
+              <a
+                className="underline underline-offset-2"
+                href="mailto:ryan@nesses.ca"
+              >
+                ryan@nesses.ca
+              </a>
+            </div>
           </div>
         </div>
-        <div className="text-ash text-xs mt-6">© {new Date().getFullYear()} R Spa</div>
-      </Container>
+
+        {/* Quick links */}
+        <nav className="text-sm">
+          <h4 className="font-semibold mb-2">Info</h4>
+          <ul className="space-y-1">
+            <li><Link href="/services" className="hover:underline">Services</Link></li>
+            <li><Link href="/booking" className="hover:underline">Booking</Link></li>
+            <li><Link href="/faq" className="hover:underline">FAQ</Link></li>
+            <li><Link href="/policies" className="hover:underline">Policies &amp; Disclaimer</Link></li>
+          </ul>
+        </nav>
+
+        {/* Note */}
+        <div className="text-sm text-zinc-600">
+          Not a medical service. Wellness sessions only. See policies for details.
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-6xl px-4 pb-8 text-xs text-zinc-500">
+        © {new Date().getFullYear()} Rejuvenessence
+      </div>
     </footer>
   );
 }

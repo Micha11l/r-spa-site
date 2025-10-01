@@ -60,7 +60,7 @@ export default function RootLayout({
     name: SITE_NAME,
     url: SITE_URL,
     image: `${SITE_URL}/logo.jpg`,
-    telephone: "+19054761937",
+    telephone: "+12892211650",
     priceRange: "$$-$$$",
     address: {
       "@type": "PostalAddress",

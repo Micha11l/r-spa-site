@@ -22,7 +22,7 @@ export default function Hero() {
           Rejuvenessence
         </h1>
         <p className="mt-4 text-white/80 text-base md:text-lg">
-          Spa in Keswick / Toronto
+          Med, Spa, & Wellness studio located in Keswick / Toronto
         </p>
         {/* 需要按钮可解开 */}
         {/* <a href="#licenses" className="mt-8 inline-flex items-center rounded-full bg-white/90 px-5 py-2 text-sm font-medium hover:bg-white transition">
