@@ -22,12 +22,9 @@ export default function HomePage() {
 
       {/* 证照 3×2 网格（非轮播） */}
       <Section eyebrow="Compliance" title="Licensed • Insured • Professional">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {LICENSES.map((src, i) => (
-            <div
-              key={src}
-              className="relative aspect-[4/3] w-full rounded-lg border bg-white"
-            >
+            <div key={src} className="relative aspect-[4/3] w-full rounded-lg border bg-white">
               <Image
                 src={src}
                 alt={`License ${i + 1}`}
@@ -44,14 +41,14 @@ export default function HomePage() {
         </p>
       </Section>
 
-      {/* 图片自动轮播（把图片放 public/gallery/1.jpg ...） */}
+      {/* 图片自动轮播 */}
       <Section eyebrow="Gallery" title="A calm space for your time">
         <Gallery
           images={[
-            "/gallery/1.jpeg",
-            "/gallery/2.jpeg",
-            "/gallery/3.jpeg",
-            "/gallery/4.jpeg",
+            "/gallery/1.jpg",
+            "/gallery/2.jpg",
+            "/gallery/3.jpg",
+            "/gallery/4.jpg",
           ]}
           auto
           interval={4000}
@@ -59,31 +56,35 @@ export default function HomePage() {
       </Section>
 
       {/* 图 + 文：Seqex / 光疗 */}
-      <Split
-        image="/gallery/seqex.jpg"
-        title="Seqex & Plasma Light Therapies"
-        desc="Modern devices including Seqex sessions, plasma lights (RX1/RX6), Vitamin-D UVB and more."
-        cta={{ href: "/seqex", label: "Explore therapies" }}
-        flip={false}
-      />
+      <Section>
+        <Split
+          image="/gallery/seqex.jpg"
+          title="Seqex & Plasma Light Therapies"
+          desc="Modern devices including Seqex sessions, plasma lights (RX1/RX6), Vitamin-D UVB and more."
+          cta={{ href: "/seqex", label: "Explore therapies" }}
+        />
+      </Section>
 
       {/* 图 + 文：Spa */}
-      <Split
-        image="/gallery/spa.jpg"
-        title="Spa Treatments"
-        desc="Head, back & shoulders, full body and hot stone — popular choices tailored to your time."
-        cta={{ href: "/spa", label: "View spa menu" }}
-        flip
-      />
+      <Section>
+        <Split
+          image="/gallery/spa.jpg"
+          title="Spa Treatments"
+          desc="Head, back & shoulders, full body and hot stone — popular choices tailored to your time."
+          cta={{ href: "/spa", label: "View spa menu" }}
+          flip
+        />
+      </Section>
 
       {/* 图 + 文：Sauna & Hot Tub */}
-      <Split
-        image="/gallery/amenities.jpg"
-        title="Sauna & Hot Tub"
-        desc="Heat, cold and soak — great before or after your session."
-        cta={{ href: "/amenities", label: "See details" }}
-        flip={false}
-      />
+      <Section>
+        <Split
+          image="/gallery/amenities.jpg"
+          title="Sauna & Hot Tub"
+          desc="Heat, cold and soak — great before or after your session."
+          cta={{ href: "/amenities", label: "See details" }}
+        />
+      </Section>
 
       {/* CTA */}
       <Section>

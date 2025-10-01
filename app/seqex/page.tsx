@@ -1,142 +1,150 @@
 // app/seqex/page.tsx
-import Section from "@/components/Section";
+import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Seqex & Plasma Light Therapies",
-  description: "Seqex sessions, personalized tests, RX1/RX6 plasma lights, Vitamin-D UVB and more.",
+  description:
+    "Seqex sessions, Plasma RX devices, Vitamin-D UVB and more. Non-medical wellness sessions in Keswick / Toronto.",
+  alternates: { canonical: "/seqex" },
 };
+
+function PageHeader() {
+  return (
+    <section className="relative">
+      <div className="relative h-[38svh] sm:h-[44svh] lg:h-[52svh]">
+        <Image
+          src="/gallery/seqex.jpg"
+          alt="Seqex & Plasma light therapies"
+          fill
+          className="object-cover"
+          sizes="100vw"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/35" />
+        <div className="absolute inset-0 flex items-center justify-center text-center px-4">
+          <div>
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white">
+              Seqex & Plasma Light Therapies
+            </h1>
+            <p className="mt-3 text-white/90">
+              Gentle, modern devices for relaxation and recovery.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function SeqexPage() {
   return (
     <>
-      <Section
-        eyebrow="Therapies"
-        title="Seqex & Plasma Light"
-        desc="Explore our device-based sessions and packages. Times and prices below are introductory and may be adjusted."
-      >
-        {/* Seqex 套餐 */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card
-            title="Seqex Session · Promotion"
-            price="$50 + HST"
-            details={[
-              "27 min preset program",
-            ]}
-          />
-          <Card
-            title="Seqex Session · Single"
-            price="$75 + HST"
-            details={[
-              "27 min preset program",
-              "FREE Vitamin D UVB 4 min (2+2)",
-              "Total time ~31 min",
-            ]}
-          />
-          <Card
-            title="Seqex Session · Double"
-            price="$150 + HST"
-            details={[
-              "Two × 27 min preset programs",
-              "FREE Vitamin D UVB 4 min (2+2)",
-              "Total time ~58 min",
-            ]}
-          />
-          <Card
-            title="Seqex 10-Pack"
-            price="$1,350 + HST"
-            details={[
-              "Per session: Two × 36 min preset programs",
-              "One FREE treatment benefit",
-              "Optional FREE UVB (4 min) at your discretion",
-              "Total time per session ~58 min",
-            ]}
-          />
-        </div>
+      <PageHeader />
 
-        {/* 个性化 / 特殊 */}
-        <h3 className="mt-10 text-xl font-semibold">Personalized & Special</h3>
-        <div className="mt-4 grid md:grid-cols-2 gap-4">
-          <Card
-            title="Seqex Personalized Test"
-            price="$250 + HST"
-            details={["~1h20m on Seqex MED (Med Bed)"]}
-          />
-          <Card
-            title="Personalized Test & Card"
-            price="$300 + HST"
-            details={[
-              "~1h20m on Seqex MED",
-              "Your personalized programmed card",
-            ]}
-          />
-          <Card
-            title="ICR Treatment"
-            price="$200 + HST"
-            details={["12 min treatment", "ICR Personalized Card"]}
-          />
-          <Card
-            title="Amygdala Flush"
-            price="$250 + HST"
-            details={["Trauma releasing (with probe)"]}
-          />
-          <Card
-            title="Special Treatment"
-            price="$250 + HST"
-            details={[
-              "Full treatment on MED BED",
-              "No personalized card for this specific protocol",
-            ]}
-          />
-        </div>
+      <section className="py-10 sm:py-14 lg:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <header className="mb-6 sm:mb-8">
+            <div className="text-xs tracking-widest text-zinc-500 uppercase">
+              Therapies & Pricing
+            </div>
+            <h2 className="mt-1 font-serif text-2xl sm:text-3xl md:text-4xl">
+              What we offer
+            </h2>
+          </header>
 
-        {/* 其它设备 */}
-        <h3 className="mt-10 text-xl font-semibold">Other devices</h3>
-        <div className="mt-4 grid md:grid-cols-2 gap-4">
-          <Card
-            title="Vitamin D UVB"
-            price="$30 + HST"
-            details={["4 min (2 min each side)"]}
-            footnote="10-pack: $250 + HST ($25 each)"
-          />
-          <Card
-            title="RX1 Seat Plasma Light"
-            price="$50 + HST"
-            details={["Two × 10 min per session"]}
-            footnote="10-pack: $450 + HST · 20-pack: $800 + HST"
-          />
-          <Card
-            title="LifeForce · Cellular Regeneration"
-            price="$175 + HST"
-            details={["Cellular regeneration therapy"]}
-          />
-        </div>
+          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+            {/* Seqex & combos */}
+            <div className="rounded-xl border p-5 sm:p-6">
+              <div className="font-medium tracking-wide">Seqex</div>
+              <ul className="mt-3 space-y-1.5 text-zinc-700">
+                <li>Individual Session (27–60m) — <b>$60</b></li>
+                <li>10-Session Package — <b>$500</b></li>
+                <li>Personalized Electroceutical Test — <b>$200</b></li>
+                <li>Seqex + Plasma Lights (75m) — <b>$75</b></li>
+              </ul>
 
-        <p className="mt-8 text-sm text-gray-500">
-          Notes: Device-based sessions are non-medical and not a substitute for professional care. Availability and durations may vary. {/* 来源：你上传的价目表 */} 
-        </p>
+              <div className="mt-6 font-medium tracking-wide">
+                RX6 Full Body (40m)
+              </div>
+              <ul className="mt-3 space-y-1.5 text-zinc-700">
+                <li>Single — <b>$200</b></li>
+                <li>5 Pack — <b>$900</b></li>
+              </ul>
+            </div>
 
-        <div className="mt-6">
-          <Link href="/booking" className="rounded-xl bg-black px-5 py-3 text-white hover:opacity-90">
-            Book a session
-          </Link>
+            {/* Lights / UVB / Vibration */}
+            <div className="rounded-xl border p-5 sm:p-6">
+              <div className="font-medium tracking-wide">Plasma RX1 / RX2</div>
+              <ul className="mt-3 space-y-1.5 text-zinc-700">
+                <li>Targeted Session (20m) — <b>$50</b></li>
+                <li>5 Pack — <b>$225</b></li>
+                <li>10 Pack — <b>$400</b></li>
+              </ul>
+
+              <div className="mt-6 font-medium tracking-wide">
+                Solarc Vitamin-D UVB
+              </div>
+              <ul className="mt-3 space-y-1.5 text-zinc-700">
+                <li>Single (4m) — <b>$25</b></li>
+                <li>10-Session Package — <b>$200</b></li>
+              </ul>
+
+              <div className="mt-6 font-medium tracking-wide">
+                Vibration + Thigh Scanner
+              </div>
+              <ul className="mt-3 space-y-1.5 text-zinc-700">
+                <li>10–20m Session — <b>$40</b></li>
+                <li>10 Pack — <b>$350</b></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="mt-10 sm:mt-12 grid lg:grid-cols-3 gap-6">
+            {[
+              {
+                t: "Comfort first",
+                d: "Non-invasive, non-medical wellness sessions. You stay clothed and relaxed.",
+              },
+              {
+                t: "Personalized options",
+                d: "Seqex personalized test helps tailor follow-up sessions for you.",
+              },
+              {
+                t: "Combine smartly",
+                d: "Light, UVB and vibration can be stacked around your main session.",
+              },
+            ].map((x) => (
+              <div key={x.t} className="rounded-xl border p-5">
+                <div className="font-medium">{x.t}</div>
+                <p className="mt-2 text-zinc-600">{x.d}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Link
+              href="/booking"
+              className="inline-flex items-center rounded-xl bg-black px-5 py-3 text-white hover:opacity-90"
+            >
+              Book a session
+            </Link>
+            <Link
+              href="/faq"
+              className="inline-flex items-center rounded-xl border border-black px-5 py-3 hover:bg-black/5"
+            >
+              Read FAQ
+            </Link>
+          </div>
+
+          <p className="mt-6 text-xs text-zinc-500">
+            Not a medical service. For wellness purposes only. Availability and
+            pricing may change.
+          </p>
         </div>
-      </Section>
+      </section>
     </>
-  );
-}
-
-function Card({
-  title, price, details, footnote,
-}: { title: string; price: string; details?: string[]; footnote?: string; }) {
-  return (
-    <article className="rounded-2xl border border-gray-200 p-5">
-      <h4 className="text-base font-semibold">{title}</h4>
-      <p className="mt-1 text-xl">{price}</p>
-      <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
-        {details?.map((d) => <li key={d}>{d}</li>)}
-      </ul>
-      {footnote && <p className="mt-3 text-xs text-gray-500">{footnote}</p>}
-    </article>
   );
 }
