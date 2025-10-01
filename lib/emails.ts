@@ -1,9 +1,9 @@
-// lib/emails.ts — Zoho SMTP 版（去重 + 清晰模板）
+// lib/emails.ts — Zoho SMTP 版（专业 HTML 模板 + 真实地址 + logo）
 import nodemailer from "nodemailer";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
-import { makeICS } from "./ics"; // 若你的 ics.ts 是命名导出：改为 `import { makeICS } from "./ics"`
+import { makeICS } from "./ics";
 
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -19,10 +19,13 @@ type BookingEmailParams = {
 };
 
 const TZ = process.env.TIMEZONE || "America/Toronto";
-const SITE_NAME = process.env.SITE_NAME || "R Spa";
-const SITE_CITY = process.env.SITE_CITY || "North of HW404, Toronto";
+const SITE_NAME = process.env.SITE_NAME || "Rejuvenessence";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
+// 对外展示的完整地址（用于邮件与 .ics）
+const SITE_ADDRESS = process.env.SITE_ADDRESS || "281 Parkwood Ave, Keswick, ON L4P 2X4";
+
 const FROM_ADDR =
-  process.env.ZOHO_FROM_EMAIL || `Rejuvenessence <${process.env.ZOHO_SMTP_USER}>`;
+  process.env.ZOHO_FROM_EMAIL || `${SITE_NAME} <${process.env.ZOHO_SMTP_USER}>`;
 
 // 线上默认不抄送；开发环境默认抄送，方便排查
 const BCC_OWNER =
@@ -52,9 +55,7 @@ function fmtWhen(iso: string) {
 function diffMin(aISO: string, bISO: string) {
   return Math.max(
     0,
-    Math.round(
-      (new Date(bISO).getTime() - new Date(aISO).getTime()) / 60000
-    )
+    Math.round((new Date(bISO).getTime() - new Date(aISO).getTime()) / 60000)
   );
 }
 
@@ -68,7 +69,7 @@ export async function sendBookingEmails(params: BookingEmailParams) {
   const whenStr = fmtWhen(params.startISO);
   const durMin = diffMin(params.startISO, params.endISO);
 
-  // ===== 店家邮件（不带附件，不抄送自己）=====
+  // ===== 店家邮件（纯文本，不带附件）=====
   const ownerText = [
     `New booking request`,
     ``,
@@ -81,8 +82,7 @@ export async function sendBookingEmails(params: BookingEmailParams) {
     `Notes:    ${params.notes || "-"}`,
     ``,
     `Tips:`,
-    `- 直接“回复”此邮件将回到客户邮箱（已设置 reply-to）。`,
-    `- 若时间无效，复制上面信息改时间后回给客户即可。`,
+    `- Reply to this email to contact the client directly (reply-to set).`,
   ].join("\n");
 
   await transporter.sendMail({
@@ -90,51 +90,109 @@ export async function sendBookingEmails(params: BookingEmailParams) {
     to: owner,
     subject: `New booking · ${params.service} · ${whenStr} · ${params.name}`,
     text: ownerText,
-    replyTo: `${params.name} <${params.email}>`, // 你点“回复”就直接回客户
-
+    replyTo: `${params.name} <${params.email}>`,
     envelope: {
       from: process.env.ZOHO_SMTP_USER!,
       to: [owner],
     },
   });
 
-  // ===== 客户邮件（附 .ics；可选 bcc 给店家用于留底）=====
-  const customerText = [
-    `Hi ${params.name},`,
-    ``,
-    `Thanks for your request! Here are the details:`,
-    `Service:  ${params.service}`,
-    `When:     ${whenStr}  (${durMin} min)`,
-    `Location: ${SITE_CITY}`,
-    ``,
-    `What's next`,
-    `• We will review and email you a confirmation shortly.`,
-    `• Exact address will be provided upon confirmation.`,
-    ``,
-    `If you need to change the time, just reply to this email.`,
-    ``,
-    `— ${SITE_NAME}`,
-  ].join("\n");
+  // ===== 客户邮件（HTML + 纯文本 + .ics）=====
+  const customerText = `Hi ${params.name},
+
+Thanks for your request! Here are the details:
+Service:  ${params.service}
+When:     ${whenStr} (${durMin} min)
+Location: ${SITE_ADDRESS}
+
+What's next
+• We'll review and email you a confirmation shortly.
+• The calendar invite (.ics) is attached.
+
+If you need to change the time, just reply to this email.
+
+— ${SITE_NAME}
+`;
 
   const ics = makeICS(
     params.service,         // summary
-    "R Spa session",        // description
-    SITE_CITY,              // location
+    `${SITE_NAME} session`, // description
+    SITE_ADDRESS,           // location
     params.startISO,
     params.endISO
   );
+
+  const logoUrl = `${SITE_URL}/logo.png`; // 你的 /public/logo.png 会映射到 /logo.png
+
+  const customerHtml = `
+  <div style="background:#f6f7f9;padding:24px">
+    <table role="presentation" cellspacing="0" cellpadding="0" align="center"
+           style="width:100%;max-width:640px;background:#ffffff;border-radius:12px;
+                  padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',
+                  Roboto,Helvetica,Arial,sans-serif;color:#111;line-height:1.6;">
+      <tr>
+        <td style="text-align:center;padding-bottom:12px">
+          <img src="${logoUrl}" alt="${SITE_NAME}" width="96"
+               style="display:inline-block;border-radius:8px"/>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h2 style="margin:0 0 8px;font-weight:600;font-size:20px">Hi ${params.name},</h2>
+          <p style="margin:0 0 16px">Thanks for your request! Here are the details:</p>
+
+          <table role="presentation" cellspacing="0" cellpadding="0"
+                 style="width:100%;border:1px solid #e5e7eb;border-radius:8px;
+                        padding:12px;background:#fafafa">
+            <tr>
+              <td style="width:120px;color:#6b7280;padding:4px 8px">Service</td>
+              <td style="padding:4px 8px;font-weight:600">${params.service}</td>
+            </tr>
+            <tr>
+              <td style="color:#6b7280;padding:4px 8px">When</td>
+              <td style="padding:4px 8px">${whenStr} <span style="color:#6b7280">(${durMin} min)</span></td>
+            </tr>
+            <tr>
+              <td style="color:#6b7280;padding:4px 8px">Location</td>
+              <td style="padding:4px 8px">${SITE_ADDRESS}</td>
+            </tr>
+          </table>
+
+          <h3 style="margin:20px 0 8px;font-size:16px">What's next</h3>
+          <ul style="margin:0 0 16px;padding-left:20px">
+            <li>We'll review and email you a confirmation shortly.</li>
+            <li>The iCalendar (.ics) file is attached — add it to your calendar.</li>
+          </ul>
+
+          <p style="margin:0 0 16px">If you need to change the time, just reply to this email.</p>
+
+          <p style="margin:24px 0 0;color:#6b7280;font-size:14px">— ${SITE_NAME}</p>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px">
+          ${SITE_NAME} · ${SITE_ADDRESS} ·
+          <a href="mailto:${process.env.ZOHO_SMTP_USER}"
+             style="color:#6b7280;text-decoration:underline">${process.env.ZOHO_SMTP_USER}</a>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
 
   await transporter.sendMail({
     from: FROM_ADDR,
     to: params.email,
     subject: `We received your request – ${params.service} on ${whenStr}`,
-    text: customerText,
-    replyTo: process.env.ZOHO_SMTP_USER, // 客户回复回到你
-    ...(BCC_OWNER ? { bcc: owner } : {}), // 线上默认不抄送，避免重复
+    text: customerText,      // 纯文本
+    html: customerHtml,      // HTML 模板
+    replyTo: process.env.ZOHO_SMTP_USER,
+    ...(BCC_OWNER ? { bcc: owner } : {}),
     attachments: [
       {
         filename: "appointment.ics",
-        content: ics,
+        content: Buffer.from(ics),
         contentType: "text/calendar; charset=utf-8; method=REQUEST",
       },
     ],
