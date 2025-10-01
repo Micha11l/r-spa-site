@@ -1,4 +1,4 @@
-# R Spa – Next.js + Supabase Starter
+# Rejuvenessence – Next.js + Supabase Starter
 
 Black & white minimalist private spa website with booking flow.
 
@@ -61,4 +61,4 @@ See `.env.example` and set:
 - Multi-language & image gallery
 
 ---
-© R Spa
+© Rejuvenessence

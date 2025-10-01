@@ -1,3 +1,5 @@
+const SITE_NAME = process.env.SITE_NAME || "Rejuvenessence";
+
 export function makeICS(summary: string, description: string, location: string, startISO: string, endISO: string) {
   const uid = Math.random().toString(36).slice(2);
   const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -6,7 +8,7 @@ export function makeICS(summary: string, description: string, location: string, 
   const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//R Spa//Booking//EN',
+    `PRODID:-//${SITE_NAME}//Booking//EN`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
