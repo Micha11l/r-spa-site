@@ -45,10 +45,10 @@ export default function HomePage() {
       <Section eyebrow="Gallery" title="A calm space for your time">
         <Gallery
           images={[
-            "/gallery/1.jpg",
-            "/gallery/2.jpg",
-            "/gallery/3.jpg",
-            "/gallery/4.jpg",
+            "/gallery/1.jpeg",
+            "/gallery/2.jpeg",
+            "/gallery/3.jpeg",
+            "/gallery/4.jpeg",
           ]}
           auto
           interval={4000}
