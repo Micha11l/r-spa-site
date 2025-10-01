@@ -18,12 +18,15 @@ type BookingEmailParams = {
   notes?: string;
 };
 
+// === 顶部常量：把这几行替换掉 ===
 const TZ = process.env.TIMEZONE || "America/Toronto";
 const SITE_NAME = process.env.SITE_NAME || "Rejuvenessence";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
-// 对外展示的完整地址（用于邮件与 .ics）
 const SITE_ADDRESS = process.env.SITE_ADDRESS || "281 Parkwood Ave, Keswick, ON L4P 2X4";
+// 新增：展示用邮箱（页脚），默认回落到 SMTP 用户
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || process.env.ZOHO_SMTP_USER || "booking@nesses.ca";
 
+// 原来是硬编码 Rejuvenessence，这里改成跟 SITE_NAME 同步
 const FROM_ADDR =
   process.env.ZOHO_FROM_EMAIL || `${SITE_NAME} <${process.env.ZOHO_SMTP_USER}>`;
 
@@ -173,8 +176,8 @@ If you need to change the time, just reply to this email.
       <tr>
         <td style="padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px">
           ${SITE_NAME} · ${SITE_ADDRESS} ·
-          <a href="mailto:${process.env.ZOHO_SMTP_USER}"
-             style="color:#6b7280;text-decoration:underline">${process.env.ZOHO_SMTP_USER}</a>
+          <a href="mailto:${CONTACT_EMAIL}"
+             style="color:#6b7280;text-decoration:underline">${CONTACT_EMAIL}</a>
         </td>
       </tr>
     </table>
