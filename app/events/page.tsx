@@ -1,38 +1,99 @@
 // app/events/page.tsx
-import Section from "@/components/Section";
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Private Events & Parties",
-  description: "Up to 50 guests. On-site only. Please contact us to discuss details.",
+  description:
+    "Host small, private gatherings (≤ 50 people). Phone/email inquiry only.",
+  alternates: { canonical: "/events" },
 };
 
-export default function EventsPage() {
+function PageHeader() {
   return (
-    <Section
-      eyebrow="Private events"
-      title="Parties & gatherings (up to 50)"
-      desc="Not bookable online. Call or email us to design your time — availability, amenities and custom arrangements."
-    >
-      <div className="rounded-2xl overflow-hidden ring-1 ring-black/5">
-        <img src="/gallery/events.png" alt="Events" className="w-full h-[360px] object-cover" />
+    <section className="relative">
+      <div className="relative h-[38svh] sm:h-[44svh] lg:h-[52svh]">
+        <Image
+          src="/gallery/events.png"
+          alt="Private events"
+          fill
+          className="object-cover"
+          sizes="100vw"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/35" />
+        <div className="absolute inset-0 flex items-center justify-center text-center px-4">
+          <div>
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white">
+              Private Events & Parties
+            </h1>
+            <p className="mt-3 text-white/90">
+              Space for intimate gatherings. Up to 50 people.
+            </p>
+          </div>
+        </div>
       </div>
-      <div className="mt-6 grid md:grid-cols-3 gap-4">
-        <Info title="Capacity" body="Up to 50 people" />
-        <Info title="Includes" body="Spa areas, sauna, hot tub, lounge/bar space" />
-        <Info title="Contact" body="+1 905-476-1937 · booking@nesses.ca" />
-      </div>
-      <p className="mt-6 text-gray-700">
-        Food & drinks can be arranged on site. Tell us your idea and we’ll propose a simple plan.
-      </p>
-    </Section>
+    </section>
   );
 }
 
-function Info({ title, body }: { title: string; body: string }) {
+export default function EventsPage() {
   return (
-    <article className="rounded-2xl border border-gray-200 p-5">
-      <h3 className="font-semibold">{title}</h3>
-      <p className="mt-1">{body}</p>
-    </article>
+    <>
+      <PageHeader />
+
+      <section className="py-10 sm:py-14 lg:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+            <div className="lg:col-span-2 rounded-xl border p-5 sm:p-6">
+              <h2 className="font-serif text-2xl sm:text-3xl">What’s included</h2>
+              <ul className="mt-4 space-y-2 text-zinc-700 list-disc list-inside">
+                <li>Cozy, minimalist space with spa-like ambience</li>
+                <li>Access to sauna & hot tub (optional)</li>
+                <li>Bar area for food & drinks (bring your own options)</li>
+                <li>Staff on site for coordination</li>
+              </ul>
+
+              <h3 className="mt-6 font-medium">Good for</h3>
+              <ul className="mt-2 space-y-2 text-zinc-700 list-disc list-inside">
+                <li>Birthdays, showers, small celebrations</li>
+                <li>Wellness themed meetups & private sessions</li>
+                <li>Team wind-down / socials</li>
+              </ul>
+
+              <p className="mt-6 text-sm text-zinc-600">
+                Note: Events are <b>inquiry only</b> (no online booking). Capacity
+                is flexible up to ~50 people depending on layout.
+              </p>
+            </div>
+
+            <div className="rounded-xl border p-5 sm:p-6">
+              <h2 className="font-serif text-2xl sm:text-3xl">Get in touch</h2>
+              <p className="mt-3 text-zinc-700">
+                Tell us your date, headcount and ideas. We’ll help shape a simple plan.
+              </p>
+              <div className="mt-5 space-y-2">
+                <div>Phone: <a className="underline" href="tel:+12892211650">+1 (289) 221-1650</a></div>
+                <div>Email: <a className="underline" href="mailto:ryan@nesses.ca">ryan@nesses.ca</a></div>
+              </div>
+
+              <div className="mt-6">
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-xl bg-black px-5 py-3 text-white hover:opacity-90"
+                >
+                  Back to home
+                </Link>
+              </div>
+
+              <p className="mt-6 text-xs text-zinc-500">
+                Not a medical service. House rules and safety policies apply.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

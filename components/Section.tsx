@@ -1,17 +1,30 @@
 // components/Section.tsx
-export default function Section({
-    eyebrow, title, desc, children,
-  }: {
-    eyebrow?: string; title?: string; desc?: string; children: React.ReactNode;
-  }) {
-    return (
-      <section className="px-4 py-14">
-        <div className="mx-auto max-w-6xl">
-          {eyebrow && <p className="mb-2 text-xs tracking-widest text-gray-500 uppercase">{eyebrow}</p>}
-          {title && <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">{title}</h2>}
-          {desc && <p className="mt-2 max-w-3xl text-gray-600">{desc}</p>}
-          <div className="mt-6">{children}</div>
-        </div>
-      </section>
-    );
-  }
+type Props = {
+  eyebrow?: string;
+  title?: string;
+  children: React.ReactNode;
+};
+
+export default function Section({ eyebrow, title, children }: Props) {
+  return (
+    <section className="py-10 sm:py-14 lg:py-20">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        {(eyebrow || title) && (
+          <header className="mb-6 sm:mb-8">
+            {eyebrow && (
+              <div className="text-xs tracking-widest text-zinc-500 uppercase">
+                {eyebrow}
+              </div>
+            )}
+            {title && (
+              <h2 className="mt-1 font-serif text-2xl sm:text-3xl md:text-4xl">
+                {title}
+              </h2>
+            )}
+          </header>
+        )}
+        {children}
+      </div>
+    </section>
+  );
+}
