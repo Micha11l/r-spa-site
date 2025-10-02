@@ -4,56 +4,86 @@ import Link from "next/link";
 import { useState } from "react";
 
 const NAV = [
-  { href: "/services", label: "SERVICES" },
-  { href: "/booking",  label: "BOOK NOW" },
-  { href: "/faq",      label: "FAQ" },
-  { href: "/policies", label: "POLICIES" },
+  { href: "/services", label: "Services" },
+  { href: "/seqex", label: "Therapies" }, // 新增
+  { href: "/booking", label: "Booking" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/policies", label: "Policies" },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 border-b">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        <Link href="/" className="font-serif text-xl md:text-2xl">
+    <header className="sticky top-0 z-40 border-b bg-white/70 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <Link
+          href="/"
+          className="font-serif text-2xl tracking-wide"
+          aria-label="Rejuvenessence home"
+        >
           Rejuvenessence
         </Link>
 
-        {/* Desktop */}
-        <nav className="hidden md:flex items-center gap-6 text-sm">
-          {NAV.map((it) => (
-            <Link key={it.href} href={it.href} className="hover:opacity-70 tracking-wide">
-              {it.label}
+        {/* 桌面导航 */}
+        <nav className="hidden items-center gap-6 text-sm md:flex">
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} className="hover:opacity-80">
+              {n.label}
             </Link>
           ))}
         </nav>
 
-        {/* Mobile toggle */}
+        {/* 手机菜单按钮 */}
         <button
-          className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Menu"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center rounded-md p-2 md:hidden"
+          aria-label="Open menu"
         >
-          <span>☰</span>
+          <span className="block h-0.5 w-6 bg-black"></span>
+          <span className="mt-1 block h-0.5 w-6 bg-black"></span>
+          <span className="mt-1 block h-0.5 w-6 bg-black"></span>
         </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* 抽屉式侧边菜单（手机） */}
       {open && (
-        <div className="md:hidden border-t bg-white">
-          <nav className="mx-auto max-w-6xl px-4 py-3 flex flex-col">
-            {NAV.map((it) => (
+        <div className="md:hidden">
+          <div
+            className="fixed inset-0 bg-black/30"
+            onClick={() => setOpen(false)}
+          />
+          <div className="fixed right-0 top-0 h-full w-72 bg-white shadow-xl">
+            <div className="flex h-14 items-center justify-between border-b px-4">
               <Link
-                key={it.href}
-                href={it.href}
-                className="py-3 border-b last:border-0"
+                href="/"
+                className="font-serif text-xl"
                 onClick={() => setOpen(false)}
               >
-                {it.label}
+                Rejuvenessence
               </Link>
-            ))}
-          </nav>
+              <button
+                aria-label="Close menu"
+                onClick={() => setOpen(false)}
+                className="p-2 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <ul className="p-2">
+              {NAV.map((n) => (
+                <li key={n.href}>
+                  <Link
+                    href={n.href}
+                    onClick={() => setOpen(false)}
+                    className="block rounded-md px-3 py-3 text-sm hover:bg-black/5"
+                  >
+                    {n.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </header>

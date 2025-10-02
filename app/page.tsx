@@ -73,7 +73,7 @@ export default function HomePage() {
           image="/gallery/seqex.jpg"
           title="Seqex & Plasma Light Therapies"
           desc="Modern devices including Seqex sessions, plasma lights (RX1/RX6), Vitamin-D UVB and more."
-          cta={{ href: "/seqex", label: "Explore therapies" }}
+          cta={{ href: "/learn-more", label: "Learn more" }}
         />
       </Section>
 
