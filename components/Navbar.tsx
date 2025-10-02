@@ -1,6 +1,8 @@
 "use client";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 const links = [
   { href: "/services", label: "Services" },
@@ -12,8 +14,12 @@ const links = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // 打开侧栏时锁定页面滚动
+  // 挂载后才能使用 portal（避免 SSR 报错）
+  useEffect(() => setMounted(true), []);
+
+  // 打开抽屉时锁页面滚动
   useEffect(() => {
     document.body.classList.toggle("overflow-hidden", open);
     return () => document.body.classList.remove("overflow-hidden");
@@ -48,69 +54,72 @@ export default function Navbar() {
           onClick={() => setOpen(true)}
           className="md:hidden inline-flex items-center justify-center rounded-md p-2"
         >
-          {/* 简单三条线图标 */}
+          {/* 三条线图标 */}
           <span className="block h-0.5 w-6 bg-black mb-1" />
           <span className="block h-0.5 w-6 bg-black mb-1" />
           <span className="block h-0.5 w-6 bg-black" />
         </button>
       </div>
 
-      {/* 移动端抽屉 + 遮罩 */}
-      {open && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          {/* 背景遮罩 */}
-          <div
-            className="absolute inset-0 bg-black/40"
-            aria-hidden="true"
-            onClick={() => setOpen(false)}
-          />
-          {/* 右侧白色抽屉 */}
-          <nav
-            id="mobile-menu"
-            className="ml-auto h-full w-[85%] max-w-xs bg-white shadow-xl p-6 overflow-y-auto"
-          >
-            <div className="flex items-center justify-between">
-              <Link
-                href="/"
-                onClick={() => setOpen(false)}
-                className="text-xl font-serif tracking-tight"
-              >
-                Rejuvenessence
-              </Link>
-              <button
-                type="button"
-                aria-label="Close menu"
-                onClick={() => setOpen(false)}
-                className="p-2"
-              >
-                {/* 关闭图标 (X) */}
-                <svg width="22" height="22" viewBox="0 0 24 24">
-                  <path
-                    d="M6 6l12 12M18 6l-12 12"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
+      {/* 抽屉用 Portal 渲染到 body，避免被任何容器/层级影响 */}
+      {mounted && open &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] md:hidden">
+            {/* 遮罩 */}
+            <div
+              className="absolute inset-0 bg-black/40"
+              aria-hidden="true"
+              onClick={() => setOpen(false)}
+            />
+            {/* 右侧白色抽屉 */}
+            <nav
+              id="mobile-menu"
+              className="ml-auto h-full w-[85%] max-w-xs bg-white shadow-xl p-6 overflow-y-auto"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="flex items-center justify-between">
+                <Link
+                  href="/"
+                  onClick={() => setOpen(false)}
+                  className="text-xl font-serif tracking-tight"
+                >
+                  Rejuvenessence
+                </Link>
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  onClick={() => setOpen(false)}
+                  className="p-2"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    <path
+                      d="M6 6l12 12M18 6l-12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
 
-            <ul className="mt-6 space-y-3">
-              {links.map((l) => (
-                <li key={l.href}>
-                  <Link
-                    href={l.href}
-                    onClick={() => setOpen(false)}
-                    className="block text-lg text-zinc-800"
-                  >
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      )}
+              <ul className="mt-6 space-y-3">
+                {links.map((l) => (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      onClick={() => setOpen(false)}
+                      className="block text-lg text-zinc-800"
+                    >
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>,
+          document.body
+        )}
     </header>
   );
 }
