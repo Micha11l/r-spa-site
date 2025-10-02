@@ -1,104 +1,114 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+const NAV = [
+  { href: "/services", label: "Services" },
+  { href: "/therapies", label: "Therapies" }, // 你已有页面
+  { href: "/licenses", label: "Licenses" },   // 新增入口
+  { href: "/booking", label: "Booking" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/policies", label: "Policies" },
+];
+
 export default function Navbar() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
-
-  // 锁定滚动，避免抽屉打开时页面滚动到别处
+  // Portal 需要等待挂载，且抽屉打开时禁止 body 滚动
   useEffect(() => {
-    const root = document.documentElement;
-    if (open) root.style.overflow = "hidden";
-    else root.style.overflow = "";
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    if (!mounted) return;
+    document.body.style.overflow = open ? "hidden" : "";
     return () => {
-      root.style.overflow = "";
+      document.body.style.overflow = "";
     };
-  }, [open]);
+  }, [open, mounted]);
 
-  const MenuIcon = () => (
-    <svg
-      width="28"
-      height="20"
-      viewBox="0 0 24 18"
-      aria-hidden="true"
-      className="block"
+  const Brand = (
+    <Link
+      href="/"
+      className="font-serif text-2xl md:text-3xl tracking-wide hover:opacity-90"
+      onClick={() => setOpen(false)}
     >
-      <rect x="2" y="2" width="20" height="2" rx="1" />
-      <rect x="2" y="8" width="20" height="2" rx="1" />
-      <rect x="2" y="14" width="20" height="2" rx="1" />
-    </svg>
+      Rejuvenessence
+    </Link>
   );
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b">
-      <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="font-serif text-2xl leading-none">
-          Rejuvenessence
-        </Link>
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-zinc-100">
+      <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+        {Brand}
 
         {/* 桌面导航 */}
-        <nav className="hidden md:flex items-center gap-6 text-sm">
-          <Link href="/services" className="hover:underline">
-            Services
-          </Link>
-          <Link href="/therapies" className="hover:underline">
-            Therapies
-          </Link>
-          <Link href="/booking" className="hover:underline">
-            Booking
-          </Link>
-          <Link href="/faq" className="hover:underline">
-            FAQ
-          </Link>
-          <Link href="/policies" className="hover:underline">
-            Policies
-          </Link>
+        <nav className="hidden md:flex items-center gap-6 text-[15px]">
+          {NAV.map((item) => {
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`hover:opacity-80 ${
+                  active ? "font-medium underline underline-offset-4" : ""
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* 移动端菜单按钮 */}
+        {/* 移动端汉堡 */}
         <button
           aria-label="Open menu"
+          aria-expanded={open}
           onClick={() => setOpen(true)}
-          className="md:hidden p-3 -mr-2"
+          className="md:hidden inline-flex items-center justify-center rounded-md p-2 ring-1 ring-zinc-300"
         >
-          <MenuIcon />
+          <div aria-hidden className="space-y-1.5">
+            <span className="block h-0.5 w-6 bg-black"></span>
+            <span className="block h-0.5 w-6 bg-black"></span>
+            <span className="block h-0.5 w-6 bg-black"></span>
+          </div>
         </button>
       </div>
 
-      {/* 移动端抽屉（Portal 渲染，iOS 点击更稳定） */}
+      {/* 移动端抽屉（Portal 到 body，白底+遮罩，可点击） */}
       {mounted &&
-        open &&
         createPortal(
-          <div className="fixed inset-0 z-[100]">
+          <div className={open ? "" : "pointer-events-none"} id="mobile-drawer">
             {/* 遮罩 */}
             <div
-              className="absolute inset-0 bg-black/40"
               onClick={() => setOpen(false)}
+              className={`fixed inset-0 bg-black/40 transition-opacity ${
+                open ? "opacity-100" : "opacity-0"
+              }`}
             />
-            {/* 抽屉本体 */}
+            {/* 侧栏 */}
             <aside
-              className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-xl z-[110] pointer-events-auto"
+              className={`fixed inset-y-0 right-0 w-[80%] max-w-[340px] bg-white shadow-2xl transition-transform duration-300 will-change-transform
+                ${open ? "translate-x-0" : "translate-x-full"}`}
               role="dialog"
               aria-modal="true"
             >
-              <div className="flex items-center justify-between h-16 px-4 border-b">
-                <span className="font-serif text-xl">Rejuvenessence</span>
+              <div className="flex items-center justify-between p-4 border-b">
+                {Brand}
                 <button
                   aria-label="Close menu"
-                  className="p-2"
                   onClick={() => setOpen(false)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md ring-1 ring-zinc-300"
                 >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    className="block"
-                  >
+                  <span className="sr-only">Close</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24">
                     <path
                       d="M6 6l12 12M18 6L6 18"
                       stroke="currentColor"
@@ -109,25 +119,29 @@ export default function Navbar() {
                 </button>
               </div>
 
-              <ul className="px-2 py-1 text-[15px]">
-                {[
-                  { href: "/services", label: "Services" },
-                  { href: "/therapies", label: "Therapies" },
-                  { href: "/booking", label: "Booking" },
-                  { href: "/faq", label: "FAQ" },
-                  { href: "/policies", label: "Policies" },
-                ].map((i) => (
-                  <li key={i.href}>
-                    <Link
-                      href={i.href}
-                      onClick={() => setOpen(false)}
-                      className="block px-2 py-3 border-b border-zinc-100"
-                    >
-                      {i.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <nav className="p-3">
+                <ul className="flex flex-col text-lg">
+                  {NAV.map((item) => {
+                    const active =
+                      item.href === "/"
+                        ? pathname === "/"
+                        : pathname.startsWith(item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          className={`block rounded-lg px-3 py-3 ${
+                            active ? "bg-zinc-100 font-medium" : "hover:bg-zinc-50"
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
             </aside>
           </div>,
           document.body

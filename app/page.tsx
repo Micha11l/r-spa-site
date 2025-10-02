@@ -20,25 +20,16 @@ export default function HomePage() {
     <>
       <Hero />
 
-      {/* 证照 3×2 网格（非轮播） */}
-      <Section eyebrow="Compliance" title="Licensed • Insured • Professional">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-          {LICENSES.map((src, i) => (
-            <div key={src} className="relative aspect-[4/3] w-full rounded-lg border bg-white">
-              <Image
-                src={src}
-                alt={`License ${i + 1}`}
-                fill
-                sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 400px"
-                className="object-contain p-2"
-                priority={i < 2}
-              />
-            </div>
-          ))}
-        </div>
-        <p className="mt-4 text-sm text-zinc-500">
-          Certifications and permits are available on-site upon request.
-        </p>
+
+      <Section>
+          <Split
+            image="/licenses/1.jpg" // 先用第一张做预览图，可随时换
+            title="Licensed • Insured • Professional"
+            desc="Seqex is licensed by Health Canada (Class II). View our certifications and compliance details."
+            cta={{ href: "/licenses", label: "View certificates" }} // 跳转新页面
+            // flip 可按喜好调整，false=图左文右；true=图右文左
+            flip={false}
+          />
       </Section>
 
       {/* 图片自动轮播 */}
