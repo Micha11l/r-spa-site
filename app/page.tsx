@@ -45,13 +45,25 @@ export default function HomePage() {
       <Section eyebrow="Gallery" title="A calm space for your time">
         <Gallery
           images={[
-            "/gallery/1.jpeg",
-            "/gallery/2.jpeg",
-            "/gallery/3.jpeg",
-            "/gallery/4.jpeg",
+            "/gallery/1.jpg",
+            "/gallery/2.jpg",
+            "/gallery/3.jpg",
+            "/gallery/4.jpg",
+            "/gallery/5.jpg",
+            "/gallery/6.jpg",
+            "/gallery/7.jpg",
+            "/gallery/8.jpg",
+            "/gallery/9.jpg",
+            "/gallery/10.jpg",
+            "/gallery/11.jpg",
+            "/gallery/12.jpg",
+            "/gallery/13.jpg",
+            "/gallery/14.jpg",
+
           ]}
           auto
-          interval={4000}
+          interval={4500}
+          aspect={16/9} //或 4/3， 1
         />
       </Section>
 
