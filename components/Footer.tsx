@@ -30,7 +30,7 @@ export default function Footer() {
 
         {/* Note */}
         <div className="text-sm text-zinc-600">
-          Not a medical service. Wellness sessions only. See policies for details.
+          Health Canada–licensed devices • Wellness-focused sessions • See policies for details.
         </div>
       </div>
 

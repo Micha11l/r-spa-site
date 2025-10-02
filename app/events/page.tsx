@@ -88,7 +88,7 @@ export default function EventsPage() {
               </div>
 
               <p className="mt-6 text-xs text-zinc-500">
-                Not a medical service. House rules and safety policies apply.
+                Programming is recreational and wellness-focused. House rules and safety policies apply.
               </p>
             </div>
           </div>

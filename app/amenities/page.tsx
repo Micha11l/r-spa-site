@@ -91,7 +91,7 @@ export default function AmenitiesPage() {
 
           <p className="mt-6 text-xs text-zinc-500">
             Safety tips: hydrate well; avoid alcohol before use; stop if you
-            feel light-headed. Not a medical service.
+            feel light-headed, pause and let our staff know. Sessions are wellness-focused and non-diagnostic.
           </p>
         </div>
       </section>
