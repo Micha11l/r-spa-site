@@ -118,7 +118,7 @@ If you need to change the time, just reply to this email.
 `;
 
   const ics = makeICS(
-    params.service,         // summary
+    `${SITE_NAME} — ${params.service}`,         // summary
     `${SITE_NAME} session`, // description
     SITE_ADDRESS,           // location
     params.startISO,
