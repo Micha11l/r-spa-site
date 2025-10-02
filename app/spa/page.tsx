@@ -90,7 +90,7 @@ export default function SpaPage() {
           </div>
 
           <p className="mt-6 text-xs text-zinc-500">
-            Not a medical service. Please inform us of sensitivities or
+            Services are relaxation-focused and non-diagnostic. Please inform us of sensitivities or
             conditions prior to your session.
           </p>
         </div>

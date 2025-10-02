@@ -140,7 +140,7 @@ export default function SeqexPage() {
           </div>
 
           <p className="mt-6 text-xs text-zinc-500">
-            Not a medical service. For wellness purposes only. Availability and
+            Sessions are provided for general wellness. Availability and
             pricing may change.
           </p>
         </div>
