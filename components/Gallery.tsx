@@ -1,129 +1,105 @@
 // components/Gallery.tsx
 "use client";
-
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
   images: string[];
-  /** 自动播放 */
   auto?: boolean;
-  /** 自动播放间隔 ms */
-  interval?: number;
-  /** 宽高比，默认 16/9。示例：1（正方形）、4/3、3/2… */
-  aspect?: number;
-  className?: string;
+  interval?: number; // ms
 };
 
-export default function Gallery({
-  images,
-  auto = true,
-  interval = 5000,
-  aspect = 16 / 9,
-  className = "",
-}: Props) {
-  const viewportRef = useRef<HTMLDivElement>(null);
+export default function Gallery({ images, auto = true, interval = 4000 }: Props) {
   const [index, setIndex] = useState(0);
+  const n = images.length;
+  const timer = useRef<NodeJS.Timeout | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const playing = useRef(true); // 只有轮播在视口内时才自动切
 
-  // 自动播放
+  // 暂停：当轮播不在视口内时不自动切，避免“感觉像被拉过去”
   useEffect(() => {
-    if (!auto || images.length <= 1) return;
-    const id = setInterval(() => goTo(index + 1), interval);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, auto, interval, images.length]);
-
-  // 根据 scroll 位置更新索引
-  useEffect(() => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    const onScroll = () => {
-      const i = Math.round(vp.scrollLeft / vp.clientWidth);
-      setIndex(i);
-    };
-    vp.addEventListener("scroll", onScroll, { passive: true });
-    return () => vp.removeEventListener("scroll", onScroll);
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        playing.current = entry.isIntersecting;
+      },
+      { threshold: 0.2 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
-  const goTo = (i: number) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    const n = images.length;
-    const idx = (i + n) % n;
-    const child = vp.children[idx] as HTMLElement | undefined;
-    child?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-    setIndex(idx);
-  };
+  // 自动播放（不改变 hash、不聚焦任何元素）
+  useEffect(() => {
+    if (!auto || n <= 1) return;
+    timer.current && clearInterval(timer.current);
+    timer.current = setInterval(() => {
+      if (playing.current) setIndex((i) => (i + 1) % n);
+    }, interval);
+    return () => timer.current && clearInterval(timer.current);
+  }, [auto, interval, n]);
+
+  const go = (i: number) => setIndex(((i % n) + n) % n);
 
   return (
-    <div className={`relative ${className}`}>
+    <div
+      ref={rootRef}
+      className="relative overflow-hidden rounded-2xl bg-white"
+      aria-roledescription="carousel"
+      aria-label="Gallery"
+    >
       <div
-        ref={viewportRef}
-        className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory rounded-2xl border bg-white/50 backdrop-blur supports-[backdrop-filter]:bg-white/40"
-        style={{ scrollbarWidth: "none" }} // Firefox 隐藏滚动条
+        className="flex transition-transform duration-500 ease-out"
+        style={{ transform: `translateX(-${index * 100}%)` }}
+        aria-live="off" // 不要让读屏器把变化当“重要”从而移动焦点
       >
-        {/* WebKit 隐藏滚动条 */}
-        <style jsx>{`
-          div::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-
         {images.map((src, i) => (
-          <div
-            key={src + i}
-            className="relative w-full shrink-0 snap-start"
-            style={{ aspectRatio: String(aspect) }}
-          >
+          <div key={src} className="relative w-full shrink-0 aspect-[16/9] md:aspect-[21/9]">
             <Image
               src={src}
-              alt={`Gallery image ${i + 1}`}
+              alt={`Photo ${i + 1}`}
               fill
-              priority={i < 1} // 首屏只优先加载第一张
-              sizes="100vw"     // 桌面/移动都按容器全宽响应式裁剪
+              sizes="100vw"
               className="object-cover"
+              priority={i === 0}
             />
           </div>
         ))}
       </div>
 
-      {/* 左右箭头（键盘与鼠标可用） */}
-      {images.length > 1 && (
-        <>
-          <button
-            type="button"
-            aria-label="Previous"
-            onClick={() => goTo(index - 1)}
-            className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-xl leading-none shadow hover:bg-white"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            aria-label="Next"
-            onClick={() => goTo(index + 1)}
-            className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-xl leading-none shadow hover:bg-white"
-          >
-            ›
-          </button>
-        </>
-      )}
+      {/* 左右切换 —— 用 button，不用 a[href="#..."] */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-between p-2">
+        <button
+          type="button"
+          onClick={() => go(index - 1)}
+          aria-label="Previous slide"
+          className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white hover:bg-black/60"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={() => go(index + 1)}
+          aria-label="Next slide"
+          className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white hover:bg-black/60"
+        >
+          ›
+        </button>
+      </div>
 
-      {/* 指示条（可点击跳转） */}
-      {images.length > 1 && (
-        <div className="pointer-events-auto absolute inset-x-0 bottom-3 flex justify-center gap-2">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              aria-label={`Go to slide ${i + 1}`}
-              onClick={() => goTo(i)}
-              className={`h-1.5 w-6 rounded-full transition ${
-                i === index ? "bg-white" : "bg-white/50 hover:bg-white/80"
-              }`}
-            />
-          ))}
-        </div>
-      )}
+      {/* 圆点导航 —— 也用 button */}
+      <div className="absolute inset-x-0 bottom-2 flex justify-center gap-2">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => go(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-2 w-2 rounded-full ${index === i ? "bg-white" : "bg-white/50"}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
