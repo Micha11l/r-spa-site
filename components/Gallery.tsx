@@ -7,30 +7,34 @@ type Props = {
   images: string[];
   auto?: boolean;
   interval?: number; // ms
+  /** 纵横比，传入 16/9、4/3、1 等数字即可 */
+  aspect?: number;
 };
 
-export default function Gallery({ images, auto = true, interval = 4000 }: Props) {
+export default function Gallery({
+  images,
+  auto = true,
+  interval = 4000,
+  aspect = 16 / 9,
+}: Props) {
   const [index, setIndex] = useState(0);
   const n = images.length;
   const timer = useRef<NodeJS.Timeout | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const playing = useRef(true); // 只有轮播在视口内时才自动切
+  const playing = useRef(true);
 
-  // 暂停：当轮播不在视口内时不自动切，避免“感觉像被拉过去”
+  // 只有在视口内才自动播放，避免造成“页面被拉过去”的感觉
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        playing.current = entry.isIntersecting;
-      },
-      { threshold: 0.2 }
-    );
+    const io = new IntersectionObserver(([entry]) => {
+      playing.current = entry.isIntersecting;
+    }, { threshold: 0.2 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  // 自动播放（不改变 hash、不聚焦任何元素）
+  // 自动播放（不改 hash、不聚焦）
   useEffect(() => {
     if (!auto || n <= 1) return;
     timer.current && clearInterval(timer.current);
@@ -52,10 +56,14 @@ export default function Gallery({ images, auto = true, interval = 4000 }: Props)
       <div
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${index * 100}%)` }}
-        aria-live="off" // 不要让读屏器把变化当“重要”从而移动焦点
+        aria-live="off"
       >
         {images.map((src, i) => (
-          <div key={src} className="relative w-full shrink-0 aspect-[16/9] md:aspect-[21/9]">
+          <div
+            key={src}
+            className="relative w-full shrink-0"
+            style={{ aspectRatio: aspect }}
+          >
             <Image
               src={src}
               alt={`Photo ${i + 1}`}
@@ -68,7 +76,7 @@ export default function Gallery({ images, auto = true, interval = 4000 }: Props)
         ))}
       </div>
 
-      {/* 左右切换 —— 用 button，不用 a[href="#..."] */}
+      {/* 左右切换（button，不用 a[href]） */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-between p-2">
         <button
           type="button"
@@ -88,7 +96,7 @@ export default function Gallery({ images, auto = true, interval = 4000 }: Props)
         </button>
       </div>
 
-      {/* 圆点导航 —— 也用 button */}
+      {/* 圆点 */}
       <div className="absolute inset-x-0 bottom-2 flex justify-center gap-2">
         {images.map((_, i) => (
           <button
