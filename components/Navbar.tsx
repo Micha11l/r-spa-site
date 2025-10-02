@@ -4,97 +4,103 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-const links = [
-  { href: "/services", label: "Services" },
-  { href: "/therapies", label: "Therapies" }, // 新增
-  { href: "/booking", label: "Booking" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/policies", label: "Policies" },
-];
-
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // 挂载后才能使用 portal（避免 SSR 报错）
   useEffect(() => setMounted(true), []);
 
-  // 打开抽屉时锁页面滚动
+  // 锁定滚动，避免抽屉打开时页面滚动到别处
   useEffect(() => {
-    document.body.classList.toggle("overflow-hidden", open);
-    return () => document.body.classList.remove("overflow-hidden");
+    const root = document.documentElement;
+    if (open) root.style.overflow = "hidden";
+    else root.style.overflow = "";
+    return () => {
+      root.style.overflow = "";
+    };
   }, [open]);
 
+  const MenuIcon = () => (
+    <svg
+      width="28"
+      height="20"
+      viewBox="0 0 24 18"
+      aria-hidden="true"
+      className="block"
+    >
+      <rect x="2" y="2" width="20" height="2" rx="1" />
+      <rect x="2" y="8" width="20" height="2" rx="1" />
+      <rect x="2" y="14" width="20" height="2" rx="1" />
+    </svg>
+  );
+
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-zinc-200">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="text-2xl font-serif tracking-tight">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b">
+      <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
+        <Link href="/" className="font-serif text-2xl leading-none">
           Rejuvenessence
         </Link>
 
-        {/* 桌面菜单 */}
-        <nav className="hidden gap-6 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="text-sm text-zinc-700 hover:text-black"
-            >
-              {l.label}
-            </Link>
-          ))}
+        {/* 桌面导航 */}
+        <nav className="hidden md:flex items-center gap-6 text-sm">
+          <Link href="/services" className="hover:underline">
+            Services
+          </Link>
+          <Link href="/therapies" className="hover:underline">
+            Therapies
+          </Link>
+          <Link href="/booking" className="hover:underline">
+            Booking
+          </Link>
+          <Link href="/faq" className="hover:underline">
+            FAQ
+          </Link>
+          <Link href="/policies" className="hover:underline">
+            Policies
+          </Link>
         </nav>
 
-        {/* 移动端按钮 */}
+        {/* 移动端菜单按钮 */}
         <button
-          type="button"
           aria-label="Open menu"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
           onClick={() => setOpen(true)}
-          className="md:hidden inline-flex items-center justify-center rounded-md p-2"
+          className="md:hidden p-3 -mr-2"
         >
-          {/* 三条线图标 */}
-          <span className="block h-0.5 w-6 bg-black mb-1" />
-          <span className="block h-0.5 w-6 bg-black mb-1" />
-          <span className="block h-0.5 w-6 bg-black" />
+          <MenuIcon />
         </button>
       </div>
 
-      {/* 抽屉用 Portal 渲染到 body，避免被任何容器/层级影响 */}
-      {mounted && open &&
+      {/* 移动端抽屉（Portal 渲染，iOS 点击更稳定） */}
+      {mounted &&
+        open &&
         createPortal(
-          <div className="fixed inset-0 z-[100] md:hidden">
+          <div className="fixed inset-0 z-[100]">
             {/* 遮罩 */}
             <div
               className="absolute inset-0 bg-black/40"
-              aria-hidden="true"
               onClick={() => setOpen(false)}
             />
-            {/* 右侧白色抽屉 */}
-            <nav
-              id="mobile-menu"
-              className="ml-auto h-full w-[85%] max-w-xs bg-white shadow-xl p-6 overflow-y-auto"
+            {/* 抽屉本体 */}
+            <aside
+              className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-xl z-[110] pointer-events-auto"
               role="dialog"
               aria-modal="true"
             >
-              <div className="flex items-center justify-between">
-                <Link
-                  href="/"
-                  onClick={() => setOpen(false)}
-                  className="text-xl font-serif tracking-tight"
-                >
-                  Rejuvenessence
-                </Link>
+              <div className="flex items-center justify-between h-16 px-4 border-b">
+                <span className="font-serif text-xl">Rejuvenessence</span>
                 <button
-                  type="button"
                   aria-label="Close menu"
-                  onClick={() => setOpen(false)}
                   className="p-2"
+                  onClick={() => setOpen(false)}
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    className="block"
+                  >
                     <path
-                      d="M6 6l12 12M18 6l-12 12"
+                      d="M6 6l12 12M18 6L6 18"
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
@@ -103,20 +109,26 @@ export default function Navbar() {
                 </button>
               </div>
 
-              <ul className="mt-6 space-y-3">
-                {links.map((l) => (
-                  <li key={l.href}>
+              <ul className="px-2 py-1 text-[15px]">
+                {[
+                  { href: "/services", label: "Services" },
+                  { href: "/therapies", label: "Therapies" },
+                  { href: "/booking", label: "Booking" },
+                  { href: "/faq", label: "FAQ" },
+                  { href: "/policies", label: "Policies" },
+                ].map((i) => (
+                  <li key={i.href}>
                     <Link
-                      href={l.href}
+                      href={i.href}
                       onClick={() => setOpen(false)}
-                      className="block text-lg text-zinc-800"
+                      className="block px-2 py-3 border-b border-zinc-100"
                     >
-                      {l.label}
+                      {i.label}
                     </Link>
                   </li>
                 ))}
               </ul>
-            </nav>
+            </aside>
           </div>,
           document.body
         )}
