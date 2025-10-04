@@ -28,7 +28,7 @@ export default function TherapiesPage() {
         <div className="grid gap-8 md:grid-cols-2 md:items-center">
           <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-100">
             <Image
-              src="/gallery/seqex.jpg"
+              src="/gallery/seqex-L.jpg"
               alt="Seqex PEMF"
               fill
               className="object-contain p-6 sm:p-10"
@@ -82,7 +82,7 @@ export default function TherapiesPage() {
           </div>
           <div className="order-1 md:order-2 relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-100">
             <Image
-              src="/gallery/amenities.jpg"
+              src="/gallery/plasma.png"
               alt="Plasma Light devices"
               fill
               className="object-cover"
@@ -97,7 +97,7 @@ export default function TherapiesPage() {
         <div className="grid gap-8 md:grid-cols-2 md:items-center">
           <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-100">
             <Image
-              src="/gallery/spa.jpg"
+              src="/gallery/seqex-main.png"
               alt="Ondamed biofeedback"
               fill
               className="object-cover"
@@ -255,7 +255,7 @@ export default function TherapiesPage() {
 
       <div className="flex flex-wrap gap-3 pt-2">
         <Link href="/booking" className="btn btn-outline">Book RX1 Seat</Link>
-        <Link href="/services" className="btn btn-ghost">See full menu</Link>
+        <Link href="/seqex" className="btn btn-ghost">See full menu</Link>
       </div>
 
       <p className="text-sm text-zinc-500">
