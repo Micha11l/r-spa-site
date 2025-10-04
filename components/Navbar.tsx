@@ -7,8 +7,9 @@ import { createPortal } from "react-dom";
 
 const NAV = [
   { href: "/services", label: "Services" },
-  { href: "/learn-more", label: "Therapies" }, // 你已有页面
-  { href: "/licenses", label: "Licenses" },   // 新增入口
+  { href: "/therapies", label: "Therapies" },
+  { href: "/bistro", label: "Bistro" },
+  { href: "/licenses", label: "Licenses" },
   { href: "/booking", label: "Booking" },
   { href: "/faq", label: "FAQ" },
   { href: "/policies", label: "Policies" },
