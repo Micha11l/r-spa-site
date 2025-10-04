@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 
 const NAV = [
   { href: "/services", label: "Services" },
-  { href: "/therapies", label: "Therapies" },
+  { href: "/learn-more", label: "Therapies" },
   { href: "/bistro", label: "Bistro" },
   { href: "/licenses", label: "Licenses" },
   { href: "/booking", label: "Booking" },
