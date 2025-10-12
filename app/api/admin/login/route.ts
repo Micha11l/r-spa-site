@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   if (next.startsWith("/api")) next = "/admin";
 
-  const res = NextResponse.redirect(new URL(next, req.url));
+  const res = NextResponse.redirect(new URL(next, req.url), { status: 303 });
   res.cookies.set("admin_auth", "1", {
     httpOnly: true,
     sameSite: "lax",
