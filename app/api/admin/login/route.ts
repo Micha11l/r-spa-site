@@ -1,49 +1,38 @@
 // app/api/admin/login/route.ts
 import { NextResponse } from "next/server";
 
-const COOKIE = "admin_session";
-const PASS = process.env.ADMIN_PASSCODE || ""; // 从环境变量读
-
 export async function POST(req: Request) {
-  try {
-    // 读取 body，兼容 JSON 与 form 提交
-    const ct = req.headers.get("content-type") || "";
-    let input = "";
+  // 表单提交（application/x-www-form-urlencoded）
+  const contentType = req.headers.get("content-type") || "";
+  let pass = "";
+  let next = "/admin";
 
-    if (ct.includes("application/json")) {
-      const data = await req.json().catch(() => ({}));
-      input = (data.passcode ?? data.pass ?? "").toString();
-    } else {
-      const fd = await req.formData();
-      input = (
-        (fd.get("passcode") ?? fd.get("pass") ?? "") as string
-      ).toString();
-    }
-
-    if (!PASS) {
-      return NextResponse.json(
-        { error: "ADMIN_PASSCODE is not set on server" },
-        { status: 500 }
-      );
-    }
-
-    if (!input || input !== PASS) {
-      return NextResponse.json({ error: "Invalid passcode" }, { status: 401 });
-    }
-
-    // 生成会话并种 cookie（本地不开 secure，线上自动 secure）
-    const token = crypto.randomUUID();
-    const maxAge = 60 * 60 * 24 * 30; // 30 天
-
-    const res = NextResponse.json({ ok: true });
-    res.headers.append(
-      "Set-Cookie",
-      `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${
-        process.env.NODE_ENV === "production" ? "Secure; " : ""
-      }`
-    );
-    return res;
-  } catch (e) {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  if (contentType.includes("application/json")) {
+    const body = await req.json();
+    pass = String(body?.passcode || body?.password || "");
+    next = String(body?.next || "/admin");
+  } else {
+    const form = await req.formData();
+    pass = String(form.get("passcode") || form.get("password") || "");
+    next = String(form.get("next") || "/admin");
   }
+
+  // 校验口令
+  if (!process.env.ADMIN_PASSCODE || pass !== process.env.ADMIN_PASSCODE) {
+    return NextResponse.json({ ok: false, error: "Invalid passcode" }, { status: 401 });
+  }
+
+  // 如果 next 指向 API，则改为 /admin（避免跳到 JSON）
+  if (next.startsWith("/api")) next = "/admin";
+
+  // 设置登录 cookie（生产环境 secure）
+  const res = NextResponse.redirect(new URL(next, req.url));
+  res.cookies.set("admin_auth", "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7, // 7 天
+  });
+  return res;
 }

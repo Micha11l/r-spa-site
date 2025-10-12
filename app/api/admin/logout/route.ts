@@ -1,15 +1,14 @@
+// app/api/admin/logout/route.ts
 import { NextResponse } from "next/server";
 
-const COOKIE = "admin_session";
-
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  // 通过设为空并 Max-Age=0 清掉会话
-  res.headers.append(
-    "Set-Cookie",
-    `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; ${
-      process.env.NODE_ENV === "production" ? "Secure; " : ""
-    }`
-  );
+  const res = NextResponse.redirect(new URL("/admin/login", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"));
+  res.cookies.set("admin_auth", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
   return res;
 }
