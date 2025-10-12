@@ -12,9 +12,9 @@ export function middleware(req: NextRequest) {
 
   // 允许登录/登出端点与登录页本身
   if (
-    pathname === "/admin/login" ||
-    pathname === "/api/admin/login" ||
-    pathname === "/api/admin/logout"
+    pathname.startsWith("/admin/login") ||
+    pathname.startsWith("/api/admin/login") ||
+    pathname.startsWith("/api/admin/logout")
   ) {
     return NextResponse.next();
   }
