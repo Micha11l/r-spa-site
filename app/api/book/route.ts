@@ -4,6 +4,7 @@ import { z } from "zod";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
+import { supabaseAdmin } from "@/lib/supabase";
 import { sendBookingEmails } from "@/lib/emails";
 import { SERVICES, DURATIONS } from "@/lib/services"; // ✅ 从新文件引入
 
@@ -70,7 +71,28 @@ export async function POST(req: Request) {
     }
 
     const minutes = DURATIONS[data.service] ?? 60;
+    // const start = dayjs.tz(`${data.date} ${data.time}`, "YYYY-MM_DD HH:mm", TZ);
     const end = start.add(minutes, "minute");
+
+    const { data: row, error: dbErr } = await supabaseAdmin
+      .from("booking")
+      .insert({
+        service_name: data.service,
+        start_ts: start.toISOString(),
+        end_ts: end.toISOString(),
+        customer_name: data.name,
+        customer_email: data.email,
+        customer_phone: data.phone,
+        notes: data.notes ?? "",
+        status: "pending",
+      })
+      .select()
+      .single();
+      
+    if (dbErr) {
+      console.error("DB insert error:", dbErr);
+      return NextResponse.json({ error: "DB error" }, { status: 500});
+    }
 
     await sendBookingEmails({
       service: data.service,

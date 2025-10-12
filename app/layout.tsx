@@ -51,8 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {
         "@type": "OpeningHoursSpecification",
         dayOfWeek: [
-          "Monday", "Tuesday", "Wednesday", "Thursday",
-          "Friday", "Saturday", "Sunday",
+          "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday",
         ],
         opens: "09:00",
         closes: "20:00",
@@ -63,6 +62,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        {/* FullCalendar CSS via CDN */}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.13/index.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.13/index.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.13/index.css" />
+      </head>
       <body>
         <Navbar />
         <main>{children}</main>
