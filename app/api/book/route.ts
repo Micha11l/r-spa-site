@@ -79,7 +79,7 @@ export async function POST(req: Request) {
           customer_phone: data.phone,
           notes: data.notes || null,
           status: "pending",
-          source: "website",
+          // source: "website",
         },
       ])
       .select("id");
