@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 
     if (dbErr) {
       console.error("[/api/book] supabase insert error:", dbErr);
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
+      return NextResponse.json({ error: "DB error", code: dbErr.code, message: dbErr.message, details: dbErr.details, hint: dbErr.hint }, { status: 500 });
     }
 
     // 邮件（失败不影响下单）
