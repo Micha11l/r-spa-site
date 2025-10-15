@@ -29,7 +29,7 @@ function ratelimit(ip: string) {
 
 // --- 校验 ---
 const schema = z.object({
-  service: z.enum(SERVICES),          // SERVICES 要是 const 断言的元组
+  service: z.enum(SERVICES),          // 服务枚举
   date: z.string().min(8),            // YYYY-MM-DD
   time: z.string().min(4),            // HH:mm
   name: z.string().min(2),
@@ -38,6 +38,20 @@ const schema = z.object({
   notes: z.string().optional().default(""),
   company: z.string().optional(),     // 蜜罐
 });
+
+// --- 工具：冲突检测（与既有预约时间段相交即冲突） ---
+async function hasConflict(startISO: string, endISO: string) {
+  // overlap 条件：existing.start_at < newEnd && existing.end_at > newStart
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .select("id,status")
+    .lt("start_at", endISO)
+    .gt("end_at", startISO)
+    .neq("status", "cancelled");
+
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
+}
 
 export async function POST(req: Request) {
   try {
@@ -53,7 +67,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    // 蜜罐：被填就直接返回成功
+    // 蜜罐：被填就直接返回成功（静默丢弃）
     if (body?.company) return NextResponse.json({ ok: true });
 
     const data = schema.parse(body);
@@ -66,14 +80,28 @@ export async function POST(req: Request) {
     const minutes = DURATIONS[data.service] ?? 60;
     const end = start.add(minutes, "minute");
 
-    // === 写入与 Admin 一致的表/字段 ===
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+
+    // ===== 一次校验：插入前冲突检查 =====
+    if (await hasConflict(startISO, endISO)) {
+      return NextResponse.json(
+        {
+          error: "Selected time is no longer available.",
+          code: "TIME_CONFLICT",
+        },
+        { status: 409 }
+      );
+    }
+
+    // ===== 写入（与 Admin 一致的表/字段）=====
     const { data: rows, error: dbErr } = await supabaseAdmin
-      .from("bookings")                                 // ✅ 表名
+      .from("bookings")
       .insert([
         {
           service_name: data.service,
-          start_at: start.toISOString(),                // ✅ 列名
-          end_at: end.toISOString(),                    // ✅ 列名
+          start_at: startISO,
+          end_at: endISO,
           customer_name: data.name,
           customer_email: data.email,
           customer_phone: data.phone,
@@ -82,19 +110,46 @@ export async function POST(req: Request) {
           // source: "website",
         },
       ])
-      .select("id");
+      .select("id")
+      .single();
 
     if (dbErr) {
       console.error("[/api/book] supabase insert error:", dbErr);
-      return NextResponse.json({ error: "DB error", code: dbErr.code, message: dbErr.message, details: dbErr.details, hint: dbErr.hint }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: "DB error",
+          code: dbErr.code,
+          message: dbErr.message,
+          details: dbErr.details,
+          hint: dbErr.hint,
+        },
+        { status: 500 }
+      );
+    }
+
+    // ===== 二次兜底：插入后再查一次（极端并发下的保守校验）=====
+    // 若你未来给表加了 EXCLUDE 约束，这一步可以移除。
+    if (await hasConflict(startISO, endISO)) {
+      // 理论上不该发生；若发生，可把这条标记为 cancelled
+      await supabaseAdmin
+        .from("bookings")
+        .update({ status: "cancelled", notes: "auto-cancelled: conflict" })
+        .eq("id", rows.id);
+      return NextResponse.json(
+        {
+          error: "Selected time just got taken. Please pick another time.",
+          code: "TIME_CONFLICT_AFTER_INSERT",
+        },
+        { status: 409 }
+      );
     }
 
     // 邮件（失败不影响下单）
     try {
       await sendBookingEmails({
         service: data.service,
-        startISO: start.toISOString(),
-        endISO: end.toISOString(),
+        startISO: startISO,
+        endISO: endISO,
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -104,7 +159,7 @@ export async function POST(req: Request) {
       console.error("[/api/book] email error:", e);
     }
 
-    return NextResponse.json({ ok: true, id: rows?.[0]?.id });
+    return NextResponse.json({ ok: true, id: rows.id });
   } catch (e: any) {
     console.error("[/api/book] error:", e);
     const msg = e?.issues ? JSON.stringify(e.issues) : e?.message || "Error";
