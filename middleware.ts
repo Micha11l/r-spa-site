@@ -2,7 +2,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const MAINT_ON = process.env.NEXT_PUBLIC_MAINTENANCE === "0";
+// 仅当变量为 "1" / "true" / "on" 才进入维护模式
+const MAINT_ON = ["1", "true", "on"].includes(
+  (process.env.NEXT_PUBLIC_MAINTENANCE ?? "").toLowerCase()
+);
 
 // 让中间件作用于全站（排除静态产物与 favicon）
 export const config = {
