@@ -2,7 +2,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const MAINT_ON = process.env.NEXT_PUBLIC_MAINTENANCE === "1";
+const MAINT_ON = process.env.NEXT_PUBLIC_MAINTENANCE === "0";
 
 // 让中间件作用于全站（排除静态产物与 favicon）
 export const config = {
