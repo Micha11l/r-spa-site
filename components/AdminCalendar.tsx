@@ -75,10 +75,13 @@ export default function AdminCalendar() {
   }, []);
 
   useEffect(() => {
+    const id = setInterval(() => {
     // 初次加载当前月范围
     const start = dayjs().startOf("month").tz(TZ).toISOString();
     const end = dayjs().endOf("month").tz(TZ).toISOString();
     load(start, end);
+    }, 60_000);
+    return () => clearInterval(id);
   }, [load]);
 
   return (
