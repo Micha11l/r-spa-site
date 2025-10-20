@@ -19,13 +19,12 @@ export default function AuthCard({ mode }: { mode: Mode }) {
   const [err, setErr] = useState<string | null>(null);
 
   const emailRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => { emailRef.current?.focus(); }, []);
 
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null); setMsg(null); setLoading(true);
-    const sb = supabaseBrowser;
+    const sb = supabaseBrowser(); // ✅ 调用函数，得到 SupabaseClient
     try {
       if (mode === "sign-in") {
         const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
@@ -33,18 +32,16 @@ export default function AuthCard({ mode }: { mode: Mode }) {
         setMsg("Signed in. Redirecting…");
         router.replace(next);
       } else {
-        // 注册
         const { data, error } = await sb.auth.signUp({
-          email, password: pwd,
+          email,
+          password: pwd,
           options: {
-            emailRedirectTo: typeof window !== "undefined"
-              ? `${window.location.origin}/sign-in`
-              : undefined,
+            emailRedirectTo:
+              typeof window !== "undefined" ? `${window.location.origin}/sign-in` : undefined,
           },
         });
         if (error) throw error;
 
-        // 如果你在 Supabase 打开了 “email confirmation required”，这里提示去邮箱确认
         if (data.user && !data.session) {
           setMsg("Sign-up successful. Please check your email to confirm your account.");
         } else {
@@ -60,13 +57,12 @@ export default function AuthCard({ mode }: { mode: Mode }) {
   }, [email, pwd, mode, next, router]);
 
   const sendReset = useCallback(async () => {
-    const sb = supabaseBrowser;
+    const sb = supabaseBrowser(); // ✅ 这里也要调用
     try {
       setErr(null); setMsg(null); setLoading(true);
       await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: typeof window !== "undefined"
-          ? `${window.location.origin}/sign-in`
-          : undefined,
+        redirectTo:
+          typeof window !== "undefined" ? `${window.location.origin}/sign-in` : undefined,
       });
       setMsg("Reset link sent. Please check your email.");
     } catch (e: any) {
@@ -82,9 +78,8 @@ export default function AuthCard({ mode }: { mode: Mode }) {
       <div className="order-2 md:order-1">
         <h1 className="h1 mb-2">{mode === "sign-in" ? "Sign in" : "Create an account"}</h1>
         <p className="text-zinc-600 mb-6">
-          {mode === "sign-in"
-            ? "Use your email and password to sign in."
-            : "Sign up with your email and a password."}
+          {mode === "sign-in" ? "Use your email and password to sign in."
+                              : "Sign up with your email and a password."}
         </p>
 
         <form onSubmit={onSubmit} className="space-y-4 max-w-md">
@@ -151,7 +146,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
         </form>
       </div>
 
-      {/* 右侧：插图/品牌文案（可换成你的图） */}
+      {/* 右侧：插图/品牌文案 */}
       <div className="order-1 md:order-2">
         <div className="hidden md:block aspect-[4/3] w-full bg-[url('/gallery/seqex-main.png')] bg-cover bg-center rounded border" />
         <div className="mt-4 text-sm text-zinc-600">
