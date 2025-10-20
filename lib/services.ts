@@ -1,5 +1,12 @@
-// lib/services.ts
+// lib/supabase.ts (server)
+import { createClient } from '@supabase/supabase-js';
 
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRole = process.env.SUPABASE_SERVICE_ROLE!;
+
+export const supabaseAdmin = createClient(url, serviceRole, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 // —— 服务清单 ——
 // Therapies
 export const THERAPIES = [
