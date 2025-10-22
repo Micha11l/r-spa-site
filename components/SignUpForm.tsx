@@ -16,7 +16,7 @@ type Form = {
   postal?: string;
   country?: string;
   marketing_email?: boolean;
-  marketing_mail?: boolean;
+  // marketing_mail?: boolean;
 };
 
 export default function SignUpForm() {
@@ -42,7 +42,7 @@ export default function SignUpForm() {
     postal: "",
     country: "",
     marketing_email: true,
-    marketing_mail: false,
+    // marketing_mail: false,
   });
 
   const onChange =
@@ -73,8 +73,8 @@ export default function SignUpForm() {
         email: emailTrim,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo:
-            (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin) + "/sign-in",
+          // emailRedirectTo:
+          //   (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin) + "/sign-in",
           data: {
             first_name: form.first_name,
             last_name: form.last_name,
@@ -87,7 +87,7 @@ export default function SignUpForm() {
               country: form.country,
             },
             marketing_email: !!form.marketing_email,
-            marketing_mail: !!form.marketing_mail,
+            // marketing_mail: !!form.marketing_mail,
           },
         },
       });
@@ -129,7 +129,7 @@ export default function SignUpForm() {
         postal: form.postal,
         country: form.country,
         marketing_email: !!form.marketing_email,
-        marketing_mail: !!form.marketing_mail,
+        // marketing_mail: !!form.marketing_mail,
       };
 
       await fetch("/api/profile/upsert", {
@@ -240,36 +240,28 @@ export default function SignUpForm() {
 
         {/* ✅ Marketing：放在 grid 内，占满两列，避免重叠 */}
         <div className="md:col-span-2">
-          <fieldset className="rounded border p-4 text-sm space-y-3">
-            <div className="flex items-start gap-3">
+          <fieldset className="w-full rounded border p-4 text-sm space-y-4 overflow-hidden">
+            <legend className="sr-only">Marketing opt-in</legend>
+
+            {/* Email opt-in */}
+            <div className="grid grid-cols-[1.25rem_1fr] gap-3 items-start">
               <input
                 id="mk-email"
                 type="checkbox"
-                className="mt-1"
+                className="h-4 w-4 mt-1"
                 checked={!!form.marketing_email}
                 onChange={onChange("marketing_email")}
               />
-              <label htmlFor="mk-email" className="leading-5 flex-1">
-                Yes, I&apos;d like to receive updates by email
-              </label>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <input
-                id="mk-mail"
-                type="checkbox"
-                className="mt-1"
-                checked={!!form.marketing_mail}
-                onChange={onChange("marketing_mail")}
-              />
-              <label htmlFor="mk-mail" className="leading-5 flex-1">
-                Yes, I&apos;d like to receive updates by mail
-              </label>
+              <label
+                htmlFor="mk-email"
+                className="leading-5 text-zinc-800 break-words whitespace-normal"
+                >
+                  Yes, I&apos;d like to receive updates by email
+                </label>
             </div>
           </fieldset>
+          </div>
         </div>
-      </div>
-
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
       <button className="btn btn-primary w-full md:w-auto" disabled={loading}>
