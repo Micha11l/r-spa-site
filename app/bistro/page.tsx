@@ -7,19 +7,18 @@ import Section from "@/components/Section";
 export const metadata: Metadata = {
   title: "281 Bistro",
   description:
-    "Small plates, pasta, mains, and a relaxed bar — available at Rejuvenessence (281 Bistro).",
+    "Rejuvenessence Bistro, proudly features the licious, tantalizing, delicacies of the highly accredited chef Todd which engenders an additional pleasurable flavour to your  experience with us.  (minimum group of 20 people.)",
   alternates: { canonical: "/bistro" },
 };
 
 type Item = {
   name: string;
   desc?: string;
-  img: string;              // 放在 /public/bistro/ 下的图片
-  priceFrom?: number;       // 价格（起）
-  unit?: string;            // pp / per pc 等自由文案
+  img: string;        // 放在 /public/bistro/ 下
+  priceFrom?: number; // “起”价
+  unit?: string;      // 自由文案：pp / per pc 等
 };
 
-// —— 菜单数据（示例价格来自你发的图；之后改这里即可） —— //
 const smallPlates: Item[] = [
   { name: "Bruschetta Trio", desc: "Tomato basil · Roasted mushroom & feta · Grilled vegetable.", img: "/bistro/bruschetta.jpg", priceFrom: 10, unit: "pp" },
   { name: "Hummus Platter", desc: "Pita & raw veggies.", img: "/bistro/hummus.jpg", priceFrom: 5, unit: "pp" },
@@ -55,7 +54,6 @@ const desserts: Item[] = [
   { name: "Fresh Fruit Platter", img: "/bistro/fruit-platter.jpg", priceFrom: 13, unit: "pp" },
 ];
 
-// —— Drinks（可后续加图与价） —— //
 type SimpleItem = { name: string; desc?: string };
 const cocktails: SimpleItem[] = [
   { name: "Classic Spritz", desc: "Bright & bubbly aperitif." },
@@ -74,12 +72,13 @@ const beerNA: SimpleItem[] = [
 // —— UI —— //
 function formatPrice(it: Item) {
   if (it.priceFrom == null) return "";
-  return `From $${it.priceFrom}${it.unit ? (it.unit.startsWith("per") ? ` ${it.unit}` : it.unit) : ""}`;
+  const unit = it.unit ? (it.unit.startsWith("per") ? ` ${it.unit}` : ` ${it.unit}`) : "";
+  return `From $${it.priceFrom}${unit}`;
 }
 
 function FoodGrid({ items }: { items: Item[] }) {
   return (
-    <ul className="grid gap-4 sm:gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid gap-5 sm:gap-6 md:gap-7 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((it) => (
         <li key={it.name} className="overflow-hidden rounded-xl border bg-white">
           <div className="relative aspect-[4/3] bg-zinc-100">
@@ -89,15 +88,14 @@ function FoodGrid({ items }: { items: Item[] }) {
               fill
               sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
               className="object-cover"
-              priority={false}
             />
           </div>
           <div className="p-4">
             <div className="flex items-start justify-between gap-3">
-              <h4 className="font-semibold">{it.name}</h4>
+              <h4 className="font-semibold leading-6">{it.name}</h4>
               <span className="shrink-0 text-sm text-zinc-700">{formatPrice(it)}</span>
             </div>
-            {it.desc && <p className="mt-1 text-sm text-zinc-600">{it.desc}</p>}
+            {it.desc && <p className="mt-1 text-sm leading-6 text-zinc-600">{it.desc}</p>}
           </div>
         </li>
       ))}
@@ -110,8 +108,8 @@ function SimpleGrid({ items }: { items: SimpleItem[] }) {
     <ul className="grid gap-3 sm:grid-cols-2">
       {items.map((it) => (
         <li key={it.name} className="rounded-xl border bg-white p-4">
-          <div className="font-semibold">{it.name}</div>
-          {it.desc && <p className="mt-1 text-sm text-zinc-600">{it.desc}</p>}
+          <div className="font-semibold leading-6">{it.name}</div>
+          {it.desc && <p className="mt-1 text-sm leading-6 text-zinc-600">{it.desc}</p>}
         </li>
       ))}
     </ul>
@@ -122,11 +120,12 @@ export default function BistroPage() {
   return (
     <>
       <Section eyebrow="Bistro" title="281 Bistro">
-        <p className="max-w-3xl text-lg text-zinc-600">
-          Small plates, pasta, seasonal mains and a relaxed bar — right at our Keswick studio.
-          Menus rotate with availability.
+        <p className="max-w-3xl text-lg text-zinc-600 leading-relaxed md:leading-8">
+          Rejuvenessence Bistro, proudly features the licious, tantalizing, delicacies
+          of the highly accredited chef Todd which engenders an additional pleasurable
+          flavour to your experience with us. (Minimum group of 20 people.)
         </p>
-        <div className="mt-4 flex gap-3">
+        <div className="mt-5 flex gap-3">
           <Link href="/booking" className="btn btn-primary">Reserve seating</Link>
           <Link href="/policies" className="btn btn-ghost">Policies</Link>
         </div>
@@ -167,8 +166,18 @@ export default function BistroPage() {
             <SimpleGrid items={beerNA} />
           </div>
         </div>
-        <p className="mt-6 text-sm text-zinc-500">
-          Sample items shown. Offerings/pricing may change based on season and supply.
+
+        <p className="mt-6 text-sm leading-6 text-zinc-500">
+          Menu prepared in collaboration with{" "}
+          <a
+            href="https://cheftoddskitchen.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Chef Todd’s Kitchen
+          </a>
+          . Offerings/pricing may change based on season and supply.
         </p>
       </Section>
     </>
