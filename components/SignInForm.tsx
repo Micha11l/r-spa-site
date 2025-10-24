@@ -1,72 +1,53 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export default function SignInForm() {
-  const router = useRouter();
-  const [email, setEmail]     = useState('');
-  const [password, setPwd]    = useState('');
+  const supabase = supabaseBrowser();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setLoading(true);
     try {
-      // TODO: 换成你真实的登录接口
-      const r = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
-      if (!r.ok) throw new Error('Invalid email or password');
-
-      // 登录成功后跳去你想要的页面（先占位）
-      router.push('/account'); // 或 /admin
+      if (error) throw error;
+      window.location.href = "/account"; // ✅ 登录成功去 /account
     } catch (err: any) {
-      setError(err?.message || 'Sign-in failed');
+      setError(err.message || "Sign in failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-sm grid gap-4">
-      <label className="block">
-        <span className="text-sm">Email</span>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 w-full border px-3 py-2 focus:outline-none"
-          placeholder="you@example.com"
-        />
-      </label>
+    <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
+      <div>
+        <label className="block text-sm mb-1">Email</label>
+        <input className="w-full" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Password</label>
+        <input className="w-full" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
+      </div>
 
-      <label className="block">
-        <span className="text-sm">Password</span>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPwd(e.target.value)}
-          className="mt-1 w-full border px-3 py-2 focus:outline-none"
-          placeholder="••••••••"
-        />
-      </label>
+      {error && <div className="text-sm text-red-600">{error}</div>}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="btn btn-primary"
-      >
-        {loading ? 'Signing in…' : 'Sign in'}
+      <button className="btn btn-primary w-full sm:w-auto" disabled={loading}>
+        {loading ? "Signing in..." : "Sign in"}
       </button>
+
+      <p className="text-sm text-zinc-600">
+        Don’t have an account? <a href="/sign-up" className="underline">Create one</a>
+      </p>
     </form>
   );
 }
