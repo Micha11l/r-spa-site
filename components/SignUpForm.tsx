@@ -5,9 +5,13 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Form = {
   email: string;
+  password: string;
+  confirm: string;
+
   first_name: string;
   last_name: string;
   phone: string;
+
   month?: string;
   day?: string;
   year?: string;
@@ -16,21 +20,19 @@ type Form = {
   postal?: string;
   country?: string;
   marketing_email?: boolean;
-  // marketing_mail?: boolean;
 };
 
 export default function SignUpForm() {
-  // ！！确保这里调用的是函数：supabaseBrowser()
   const supabase = supabaseBrowser();
-
-  const [step, setStep] = useState<"form" | "code" | "done">("form");
+  const [step, setStep] = useState<"form" | "code">("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
 
   const [form, setForm] = useState<Form>({
     email: "",
+    password: "",
+    confirm: "",
     first_name: "",
     last_name: "",
     phone: "",
@@ -42,7 +44,6 @@ export default function SignUpForm() {
     postal: "",
     country: "",
     marketing_email: true,
-    // marketing_mail: false,
   });
 
   const onChange =
@@ -60,26 +61,25 @@ export default function SignUpForm() {
     return null;
   };
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Step 1: 发送邮箱验证码
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (form.password.length < 6) return setError("Password must be at least 6 characters.");
+    if (form.password !== form.confirm) return setError("Passwords do not match.");
+
     setLoading(true);
-
     try {
-      const emailTrim = form.email.trim();
-      const dob = buildDob();
-
       const { error } = await supabase.auth.signInWithOtp({
-        email: emailTrim,
+        email: form.email.trim(),
         options: {
           shouldCreateUser: true,
-          // emailRedirectTo:
-          //   (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin) + "/sign-in",
           data: {
             first_name: form.first_name,
             last_name: form.last_name,
             phone: form.phone,
-            dob,
+            dob: buildDob(),
             address: {
               street: form.street,
               city: form.city,
@@ -87,13 +87,10 @@ export default function SignUpForm() {
               country: form.country,
             },
             marketing_email: !!form.marketing_email,
-            // marketing_mail: !!form.marketing_mail,
           },
         },
       });
       if (error) throw error;
-
-      setEmail(emailTrim);
       setStep("code");
     } catch (err: any) {
       setError(err.message || "Failed to send code");
@@ -102,47 +99,50 @@ export default function SignUpForm() {
     }
   }
 
-  async function handleVerify(e: React.FormEvent) {
+  // Step 2: 验证 6 位验证码 → 设置密码 → 写入资料 → 登出 → 去 /sign-in
+  async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
+      // 验证邮箱验证码
       const { data, error } = await supabase.auth.verifyOtp({
-        email,
+        email: form.email.trim(),
         token: code.trim(),
-        type: "email", // 6 位邮箱验证码
+        type: "email",
       });
       if (error) throw error;
+      if (!data.session) throw new Error("No session after OTP verification.");
 
-      const session = data.session;
-      if (!session || !data.user) throw new Error("No session after OTP verification.");
+      // 设置用户密码
+      const { error: updErr } = await supabase.auth.updateUser({ password: form.password });
+      if (updErr) throw updErr;
 
-      // 把资料落库（服务端路由做 RLS 安全）
-      const payload = {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        phone: form.phone,
-        dob: buildDob(),
-        street: form.street,
-        city: form.city,
-        postal: form.postal,
-        country: form.country,
-        marketing_email: !!form.marketing_email,
-        // marketing_mail: !!form.marketing_mail,
-      };
-
-      await fetch("/api/profile/upsert", {
+      // 资料入库（RLS：携带 access_token）
+      const upsertResponse = await fetch("/api/profile/upsert", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${data.session.access_token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          phone: form.phone,
+          dob: buildDob(),
+          street: form.street,
+          city: form.city,
+          postal: form.postal,
+          country: form.country,
+          marketing_email: !!form.marketing_email,
+        }),
         cache: "no-store",
       });
+      if (!upsertResponse.ok) throw new Error("Failed to upsert profile");
 
-      setStep("done");
+      // 强制走登录页
+      await supabase.auth.signOut();
+      window.location.href = "/sign-in?verified=1";
     } catch (err: any) {
       setError(err.message || "Verification failed");
     } finally {
@@ -150,166 +150,146 @@ export default function SignUpForm() {
     }
   }
 
-  if (step === "done") {
+  // ---- UI ----
+  if (step === "code") {
     return (
-      <div className="card">
-        <h2 className="h2 mb-2">Welcome!</h2>
-        <p>Account created successfully. You can now book faster and manage your appointments.</p>
-      </div>
+      <form onSubmit={handleVerifyCode} className="space-y-4 max-w-xl">
+        <h2 className="h2">Verify your email</h2>
+        <p className="text-sm text-zinc-600">
+          We’ve sent a 6-digit verification code to <b>{form.email}</b>. (Check spam if not received.)
+        </p>
+        <div>
+          <label className="block text-sm mb-1">Verification code</label>
+          <input
+            className="w-full"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
+        </div>
+        {error && <div className="text-sm text-red-600">{error}</div>}
+        <div className="flex gap-3">
+          <button className="btn btn-primary" disabled={loading}>
+            {loading ? "Verifying..." : "Verify & complete"}
+          </button>
+          <button
+            type="button"
+            className="underline text-sm"
+            onClick={async () => {
+              setError(null);
+              setLoading(true);
+              try {
+                await supabase.auth.signInWithOtp({
+                  email: form.email.trim(),
+                  options: { shouldCreateUser: true },
+                });
+              } catch (err: any) {
+                setError(err.message || "Failed to resend code");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            Resend code
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500">You can resend once every 60 seconds.</p>
+      </form>
     );
   }
 
-  return step === "form" ? (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* 表单主栅格 */}
+  return (
+    <form onSubmit={handleSendCode} className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm mb-1">First name *</label>
-          <input required value={form.first_name} onChange={onChange("first_name")} className="w-full" />
+          <input className="w-full" required value={form.first_name} onChange={onChange("first_name")} />
         </div>
         <div>
           <label className="block text-sm mb-1">Last name *</label>
-          <input required value={form.last_name} onChange={onChange("last_name")} className="w-full" />
+          <input className="w-full" required value={form.last_name} onChange={onChange("last_name")} />
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Email *</label>
-          <input required type="email" value={form.email} onChange={onChange("email")} className="w-full" />
+          <input className="w-full" type="email" required value={form.email} onChange={onChange("email")} />
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Phone *</label>
-          <input required inputMode="tel" value={form.phone} onChange={onChange("phone")} className="w-full" />
+          <input className="w-full" inputMode="tel" required value={form.phone} onChange={onChange("phone")} />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Password *</label>
+          <input className="w-full" type="password" required value={form.password} onChange={onChange("password")} />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Confirm password *</label>
+          <input className="w-full" type="password" required value={form.confirm} onChange={onChange("confirm")} />
         </div>
 
         {/* DOB */}
         <div>
           <label className="block text-sm mb-1">Month</label>
-          <input
-            placeholder="MM"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={2}
-            value={form.month}
-            onChange={onChange("month")}
-            className="w-full"
-          />
+          <input className="w-full" placeholder="MM" inputMode="numeric" pattern="[0-9]*" maxLength={2}
+                 value={form.month} onChange={onChange("month")} />
         </div>
         <div>
           <label className="block text-sm mb-1">Day</label>
-          <input
-            placeholder="DD"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={2}
-            value={form.day}
-            onChange={onChange("day")}
-            className="w-full"
-          />
+          <input className="w-full" placeholder="DD" inputMode="numeric" pattern="[0-9]*" maxLength={2}
+                 value={form.day} onChange={onChange("day")} />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Year</label>
-          <input
-            placeholder="YYYY"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={4}
-            value={form.year}
-            onChange={onChange("year")}
-            className="w-full"
-          />
+          <input className="w-full" placeholder="YYYY" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                 value={form.year} onChange={onChange("year")} />
         </div>
 
         {/* Address */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Street</label>
-          <input value={form.street} onChange={onChange("street")} className="w-full" />
+          <input className="w-full" value={form.street} onChange={onChange("street")} />
         </div>
         <div>
           <label className="block text-sm mb-1">City</label>
-          <input value={form.city} onChange={onChange("city")} className="w-full" />
+          <input className="w-full" value={form.city} onChange={onChange("city")} />
         </div>
         <div>
           <label className="block text-sm mb-1">ZIP/Postal code</label>
-          <input value={form.postal} onChange={onChange("postal")} className="w-full" />
+          <input className="w-full" value={form.postal} onChange={onChange("postal")} />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Country</label>
-          <input value={form.country} onChange={onChange("country")} className="w-full" />
+          <input className="w-full" value={form.country} onChange={onChange("country")} />
         </div>
 
-        {/* ✅ Marketing：放在 grid 内，占满两列，避免重叠 */}
         <div className="md:col-span-2">
-          <fieldset className="w-full rounded border p-4 text-sm space-y-4 overflow-hidden">
-            <legend className="sr-only">Marketing opt-in</legend>
-
-            {/* Email opt-in */}
-            <div className="grid grid-cols-[1.25rem_1fr] gap-3 items-start">
-              <input
-                id="mk-email"
-                type="checkbox"
-                className="h-4 w-4 mt-1"
-                checked={!!form.marketing_email}
-                onChange={onChange("marketing_email")}
-              />
-              <label
-                htmlFor="mk-email"
-                className="leading-5 text-zinc-800 break-words whitespace-normal"
-                >
-                  Yes, I&apos;d like to receive updates by email
-                </label>
-            </div>
-          </fieldset>
-          </div>
+          <label className="flex items-start gap-3 text-sm rounded border p-4">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={!!form.marketing_email}
+              onChange={onChange("marketing_email")}
+            />
+            <span className="leading-5">Yes, I&apos;d like to receive updates by email</span>
+          </label>
         </div>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
+      </div>
 
-      <button className="btn btn-primary w-full md:w-auto" disabled={loading}>
+      {error && <div className="text-sm text-red-600">{error}</div>}
+
+      <button className="btn btn-primary w-full sm:w-auto" disabled={loading}>
         {loading ? "Sending code..." : "Create account"}
       </button>
 
       <p className="text-sm text-zinc-600">
-        Already have an account?{" "}
-        <a className="underline" href="/sign-in">
-          Sign in
-        </a>
+        Already have an account? <a href="/sign-in" className="underline">Sign in</a>
       </p>
-    </form>
-  ) : (
-    <form onSubmit={handleVerify} className="space-y-4">
-      <h2 className="h2">Check your email</h2>
-      <p className="text-sm text-zinc-600">
-        We’ve sent a 6-digit verification code to <b>{email}</b>.
-      </p>
-      <div>
-        <label className="block text-sm mb-1">Verification code</label>
-        <input
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={6}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-          className="w-full"
-        />
-      </div>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-      <button className="btn btn-primary" disabled={loading}>
-        {loading ? "Verifying..." : "Verify & Complete"}
-      </button>
-      <button
-        type="button"
-        className="ml-3 underline text-sm"
-        onClick={async () => {
-          setError(null);
-          await supabase.auth.signInWithOtp({
-            email,
-            options: { shouldCreateUser: true },
-          });
-        }}
-      >
-        Resend code
-      </button>
     </form>
   );
 }
