@@ -1,67 +1,70 @@
 // app/api/profile/upsert/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase"; // 你的 service-role 客户端
 import { z } from "zod";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const schema = z.object({
+const BodySchema = z.object({
   first_name: z.string().min(1),
   last_name: z.string().min(1),
-  phone: z.string().min(3),
-  dob: z.string().nullable().optional(), // YYYY-MM-DD | null
-  street: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  postal: z.string().optional().nullable(),
-  country: z.string().optional().nullable(),
+  phone: z.string().min(5),
+  dob: z.string().nullable().optional(),   // "YYYY-MM-DD" | null
+  street: z.string().optional(),
+  city: z.string().optional(),
+  postal: z.string().optional(),
+  country: z.string().optional(),
   marketing_email: z.boolean().optional(),
-  marketing_mail: z.boolean().optional(),
-});
+  // ❌ 不再接收 marketing_mail
+}).strip();   // ⬅️ 移除未知键，避免被传到 DB
 
 export async function POST(req: Request) {
   try {
     const auth = req.headers.get("authorization") || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (!token) return NextResponse.json({ error: "Missing token" }, { status: 401 });
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (!token) {
+      return NextResponse.json({ error: "Missing bearer token" }, { status: 401 });
+    }
 
-    // ✅ 用服务端取 token 内的用户
-    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
-    if (userErr || !userData?.user) {
+    const { data: u, error: uErr } = await supabaseAdmin.auth.getUser(token);
+    if (uErr || !u?.user) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
-    const userId = userData.user.id;
 
-    const body = await req.json();
-    const input = schema.parse(body);
+    const json = await req.json();
+    const b = BodySchema.parse(json); // ⬅️ 这里已 strip 掉未知字段（例如 marketing_mail）
+
+    const row = {
+      id: u.user.id,
+      first_name: b.first_name?.trim() || null,
+      last_name: b.last_name?.trim() || null,
+      phone: b.phone?.trim() || null,
+      dob: b.dob ? new Date(b.dob) : null,
+      street: b.street ?? null,
+      city: b.city ?? null,
+      postal: b.postal ?? null,
+      country: b.country ?? null,
+      marketing_email: b.marketing_email ?? true,
+    };
 
     const { error: dbErr } = await supabaseAdmin
       .from("profiles")
-      .upsert(
-        {
-          id: userId, // 强制使用当前用户 id
-          first_name: input.first_name,
-          last_name: input.last_name,
-          phone: input.phone,
-          city: input.city ?? null,
-          postal: input.postal ?? null,
-          country: input.country ?? null,
-          // 你表里如果有 dob/street 字段，取消注释：
-          // dob: input.dob ?? null,
-          // street: input.street ?? null,
-          marketing_email: input.marketing_email ?? true,
-          marketing_mail: input.marketing_mail ?? false,
-        },
-        { onConflict: "id" }
-      );
+      .upsert(row, { onConflict: "id" })
+      .select("id")
+      .single();
 
     if (dbErr) {
       console.error("[profile/upsert] DB error:", dbErr);
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "DB error", code: dbErr.code, message: dbErr.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[profile/upsert] error:", e);
-    return NextResponse.json({ error: e?.message || "Error" }, { status: 400 });
+    return NextResponse.json({ error: e?.message || "error" }, { status: 400 });
   }
 }
