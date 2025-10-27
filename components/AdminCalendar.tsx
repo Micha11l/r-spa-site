@@ -82,8 +82,8 @@ export default function AdminCalendar() {
       items.map((b) => ({
         id: b.id || `${b.customer_email ?? b.customer_phone}-${b.start_ts}`,
         title: `${b.service_name} · ${b.customer_name}`,
-        start: toTZ(b.start_ts),
-        end: toTZ(b.end_ts),
+        start: toTZ(b.start_ts || (b as any).start),
+        end: toTZ(b.end_ts || (b as any).end),
         backgroundColor: statusColor(b.status),
         borderColor: statusColor(b.status),
         extendedProps: {
@@ -108,9 +108,9 @@ export default function AdminCalendar() {
 
       const res = await fetch(url.toString(), { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const j = await res.json().catch(() => ({}));
-      setItems(Array.isArray(j.items) ? j.items : []);
+      const j = await res.json();
+      console.log("Fetched bookings:", j);
+      setItems(Array.isArray(j) ? j : Array.isArray(j.items) ? j.items : []);
     } catch (e: any) {
       console.error("[admin calendar] load error", e);
       setItems([]);
