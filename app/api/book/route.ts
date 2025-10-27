@@ -53,28 +53,28 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-
-    // 蜜罐：被填就假装成功
-    if (body?.company) return NextResponse.json({ ok: true });
+    if (body?.company) return NextResponse.json({ ok: true }); // 蜜罐
 
     const data = schema.parse(body);
 
-    // 1) 解析时间（本地时区）
+    // 允许 2025/10/22 这类格式
     const dateNorm = data.date.replace(/[./]/g, "-");
-    const parsed = dayjs(`${dateNorm} ${data.time}`, "YYYY-MM-DD HH:mm", true);
-    const startLocal = dayjs.tz(parsed, TZ);
+
+    // 严格解析到本地时区
+    const startLocal = dayjs.tz(`${dateNorm} ${data.time}`, "YYYY-MM-DD HH:mm", TZ);
     if (!startLocal.isValid()) {
       return NextResponse.json({ error: "Invalid date/time" }, { status: 400 });
     }
+
     const minutes = DURATIONS[data.service] ?? 60;
     const endLocal = startLocal.add(minutes, "minute");
 
     const startISO = startLocal.utc().toISOString();
     const endISO = endLocal.utc().toISOString();
 
-    // 2) 冲突检测：查“表” booking_requests（不含已取消）
+    // 冲突检测：start_at < endISO 且 end_at > startISO (边界相邻允许)
     const { count: overlapCount, error: overlapErr } = await supabaseAdmin
-      .from("booking_requests")
+      .from("bookings")
       .select("id", { count: "exact", head: true })
       .lt("start_at", endISO)
       .gt("end_at", startISO)
@@ -82,55 +82,56 @@ export async function POST(req: Request) {
 
     if (overlapErr) {
       console.error("[/api/book] overlap check error:", overlapErr);
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
+      return NextResponse.json(
+        { error: `DB overlap error: ${overlapErr.message || overlapErr}` },
+        { status: 500 }
+      );
     }
     if ((overlapCount ?? 0) > 0) {
       return NextResponse.json({ error: "time_taken" }, { status: 409 });
     }
 
-    // 3) 插入：写“表” booking_requests
-    const { data: rows, error: dbErr } = await supabaseAdmin
-      .from("booking_requests")
-      .insert([
-        {
-          service_name: data.service,
-          start_at: startISO,
-          end_at: endISO,
-          customer_name: data.name,
-          customer_email: data.email,
-          customer_phone: data.phone,
-          notes: data.notes || null,
-          status: "pending",
-          source: "website",
-        },
-      ])
+    const row = {
+      service_name: data.service,
+      start_at: startISO,
+      end_at: endISO,
+      customer_name: data.name,
+      customer_email: data.email,
+      customer_phone: data.phone,
+      notes: data.notes || null,
+      status: "pending" as const,
+    };
+
+    let ins = await supabaseAdmin
+      .from("bookings")
+      .insert([row])
       .select("id")
       .single();
 
-    if (dbErr) {
-      console.error("[/api/book] insert error:", dbErr);
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
+    if (ins.error) {
+      console.error("[/api/book] insert error:", ins.error);
+      return NextResponse.json(
+        { error: `DB insert error: ${ins.error.message || ins.error}` },
+        { status: 500 }
+      );
     }
 
-    // 4) 邮件（失败不影响下单）
-    try {
-      await sendBookingEmails({
-        service: data.service,
-        startISO,
-        endISO,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        notes: data.notes,
-      });
-    } catch (e) {
-      console.error("[/api/book] email error:", e);
-    }
+    // 邮件失败不影响下单
+    sendBookingEmails({
+      service: data.service,
+      startISO,
+      endISO,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      notes: data.notes,
+    }).catch((e) => console.error("[/api/book] email error:", e));
 
-    return NextResponse.json({ ok: true, id: rows?.id });
+    return NextResponse.json({ ok: true, id: ins.data?.id });
   } catch (e: any) {
     console.error("[/api/book] error:", e);
-    const msg = e?.issues ? JSON.stringify(e.issues) : e?.message || "Error";
+    const msg =
+      e?.issues ? JSON.stringify(e.issues) : e?.message || "Unknown error";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

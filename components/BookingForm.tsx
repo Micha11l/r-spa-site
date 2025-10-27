@@ -36,6 +36,7 @@ const SERVICES = [
   "Private Event / Party (inquiry only)",
 ] as const;
 
+
 export default function BookingForm() {
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);

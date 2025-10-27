@@ -9,7 +9,7 @@ type Profile = { first_name?: string | null; last_name?: string | null };
 
 const nav = [
   { href: "/services", label: "Services" },
-  { href: "/therapies", label: "Therapies" },
+  { href: "/learn-more", label: "Therapies" },
   { href: "/bistro", label: "Bistro" },
   { href: "/booking", label: "Booking" },
   { href: "/faq", label: "FAQ" },
