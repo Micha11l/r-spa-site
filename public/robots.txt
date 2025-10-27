@@ -1,5 +1,7 @@
 User-agent: *
+Disallow: /admin
+Disallow: /maintenance
+Disallow: /s/
 Allow: /
 
 Sitemap: https://rejuvenessence.org/sitemap.xml
-Host: rejuvenessence.org

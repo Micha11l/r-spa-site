@@ -1,67 +1,64 @@
 // app/api/admin/bookings/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { supabaseAdmin } from "@/lib/supabase";
 
 dayjs.extend(utc);
 dayjs.extend(tz);
 
 export const runtime = "nodejs";
+// 强制动态 & 禁止缓存
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 const TZ = process.env.TIMEZONE || "America/Toronto";
 
-// 安全地把任意 from/to 字符串（YYYY-MM-DD 或 ISO）变成“当天在 TZ 的开始/下一天开始（UTC）”
-function toUtcDayRange(fromStr: string, toStr: string) {
-  // 只取前 10 位保证是 YYYY-MM-DD（即使传了 ISO 也能稳）
-  const fromDateOnly = fromStr.slice(0, 10);
-  const toDateOnly = toStr.slice(0, 10);
-
-  const fromUTC = dayjs.tz(fromDateOnly, "YYYY-MM-DD", TZ)
-    .startOf("day")
-    .utc()
-    .toISOString();
-
-  // 右开区间：下一天 00:00
-  const toUTC = dayjs.tz(toDateOnly, "YYYY-MM-DD", TZ)
-    .add(1, "day")
-    .startOf("day")
-    .utc()
-    .toISOString();
-
-  return { fromUTC, toUTC };
+function parseDayToUTCStart(d: string) {
+  // 直接把日期当作 UTC 零点，避免重复时区转换
+  return dayjs.utc(d).startOf("day").toISOString();
 }
 
-export async function GET(req: Request) {
+function parseDayToUTCExclusiveNext(d: string) {
+  // 取下一天的 UTC 零点作为右开区间
+  return dayjs.utc(d).add(1, "day").startOf("day").toISOString();
+}
+
+
+export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const from = url.searchParams.get("from");
-    const to = url.searchParams.get("to");
-    if (!from || !to) {
+    const { searchParams } = new URL(req.url);
+    const fromParam = searchParams.get("from"); // e.g. 2025-10-01
+    const toParam = searchParams.get("to");     // e.g. 2025-10-31
+
+    if (!fromParam || !toParam) {
       return NextResponse.json({ error: "from/to required" }, { status: 400 });
     }
 
-    const { fromUTC, toUTC } = toUtcDayRange(from, to);
+    // 左闭右开 [from, to+1day)
+    const fromISO = parseDayToUTCStart(fromParam);
+    const toISO   = parseDayToUTCExclusiveNext(toParam);
 
     const { data, error } = await supabaseAdmin
-      .from("bookings") // ✅ 只查这张表
+      .from("bookings")
       .select(
         "id, service_name, start_at, end_at, status, customer_name, customer_phone, notes"
       )
-      .gte("start_at", fromUTC)
-      .lt("start_at", toUTC)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
       .order("start_at", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error("[admin/bookings] db error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     const events = (data ?? []).map((r) => ({
       id: r.id,
       title: `${r.service_name}${r.status === "cancelled" ? " (cancelled)" : ""}`,
-      start: r.start_at,
+      start: r.start_at, // ISO UTC，FullCalendar能识别
       end: r.end_at,
       status: r.status,
       name: r.customer_name,
@@ -71,7 +68,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(events, { status: 200 });
   } catch (e: any) {
-    console.error("[admin/bookings] error", e);
+    console.error("[admin/bookings] error:", e);
     return NextResponse.json({ error: e.message || "server error" }, { status: 500 });
   }
 }
