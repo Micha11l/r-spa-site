@@ -1,44 +1,64 @@
 // app/api/admin/bookings/route.ts
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import tz from "dayjs/plugin/timezone";
 import { supabaseAdmin } from "@/lib/supabase";
 
 dayjs.extend(utc);
+dayjs.extend(tz);
 
-// ✅ 关键：强制动态 & 不缓存
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export async function GET(req: NextRequest) {
+const TZ = process.env.TIMEZONE || "America/Toronto";
+
+// 安全地把任意 from/to 字符串（YYYY-MM-DD 或 ISO）变成“当天在 TZ 的开始/下一天开始（UTC）”
+function toUtcDayRange(fromStr: string, toStr: string) {
+  // 只取前 10 位保证是 YYYY-MM-DD（即使传了 ISO 也能稳）
+  const fromDateOnly = fromStr.slice(0, 10);
+  const toDateOnly = toStr.slice(0, 10);
+
+  const fromUTC = dayjs.tz(fromDateOnly, "YYYY-MM-DD", TZ)
+    .startOf("day")
+    .utc()
+    .toISOString();
+
+  // 右开区间：下一天 00:00
+  const toUTC = dayjs.tz(toDateOnly, "YYYY-MM-DD", TZ)
+    .add(1, "day")
+    .startOf("day")
+    .utc()
+    .toISOString();
+
+  return { fromUTC, toUTC };
+}
+
+export async function GET(req: Request) {
   try {
-    // 用 NextRequest 的 nextUrl 更直观
-    const { searchParams } = req.nextUrl;
-    const from = searchParams.get("from"); // YYYY-MM-DD
-    const to = searchParams.get("to");     // YYYY-MM-DD
+    const url = new URL(req.url);
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
     if (!from || !to) {
       return NextResponse.json({ error: "from/to required" }, { status: 400 });
     }
 
-    const fromISO = dayjs(from).startOf("day").toISOString();
-    const toISO = dayjs(to).endOf("day").toISOString();
+    const { fromUTC, toUTC } = toUtcDayRange(from, to);
 
-    // 统一查询 public.bookings 表（字段：start_at / end_at）
     const { data, error } = await supabaseAdmin
-      .from("bookings")
-      .select("id, service_name, start_at, end_at, status, customer_name, customer_phone, notes")
-      .gte("start_at", fromISO)
-      .lt("start_at", toISO)
+      .from("bookings") // ✅ 只查这张表
+      .select(
+        "id, service_name, start_at, end_at, status, customer_name, customer_phone, notes"
+      )
+      .gte("start_at", fromUTC)
+      .lt("start_at", toUTC)
       .order("start_at", { ascending: true });
 
-    if (error) {
-      console.error("[admin/bookings] db error", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) throw error;
 
-    const events = (data || []).map((r) => ({
+    const events = (data ?? []).map((r) => ({
       id: r.id,
       title: `${r.service_name}${r.status === "cancelled" ? " (cancelled)" : ""}`,
       start: r.start_at,
@@ -49,10 +69,7 @@ export async function GET(req: NextRequest) {
       notes: r.notes ?? "",
     }));
 
-    return NextResponse.json(events, {
-      status: 200,
-      headers: { "Cache-Control": "no-store" }, // 再保险
-    });
+    return NextResponse.json(events, { status: 200 });
   } catch (e: any) {
     console.error("[admin/bookings] error", e);
     return NextResponse.json({ error: e.message || "server error" }, { status: 500 });
