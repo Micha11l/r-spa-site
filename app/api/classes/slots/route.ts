@@ -1,41 +1,74 @@
-// app/api/classes/slots/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export const runtime = "nodejs";
-
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const date = url.searchParams.get("date"); // YYYY-MM-DD
-  const type = url.searchParams.get("type"); // stretching | yoga | pilates
-  if (!date || !type) return NextResponse.json({ error: "date & type required" }, { status: 400 });
+  const { searchParams } = new URL(req.url);
+  const class_date = searchParams.get("date");
+  const class_type = searchParams.get("type");
 
-  const tpl = [
-    { start: "06:30", end: "07:30" },
-    { start: "07:30", end: "08:30" },
-    { start: "08:30", end: "09:30" },
-    { start: "17:30", end: "18:30" },
-    { start: "18:30", end: "19:30" },
-    { start: "19:30", end: "20:30" },
-  ];
+  // 从请求头取 Authorization
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.replace("Bearer ", "");
 
-  const { data, error } = await supabaseAdmin
-    .from("class_signups")
-    .select("start_time,end_time", { count: "exact" })
-    .eq("class_date", date)
-    .eq("class_type", type);
-
-  if (error) {
-    console.error("[/api/classes/slots]", error);
-    return NextResponse.json({ error: "DB error" }, { status: 500 });
+  if (!class_date || !class_type) {
+    return NextResponse.json({ error: "Missing date or type" }, { status: 400 });
   }
 
-  const counts: Record<string, number> = {};
-  (data || []).forEach((r: any) => {
-    const key = `${r.start_time.slice(0,5)}-${r.end_time.slice(0,5)}`;
-    counts[key] = (counts[key] || 0) + 1;
-  });
+  const supabase = supabaseAdmin;
 
-  // 返回各时段人数
-  return NextResponse.json({ counts });
+  // ========================
+  // ① 获取所有报名记录
+  // ========================
+  const { data, error } = await supabase
+    .from("class_signups")
+    .select("user_id,start_time,end_time")
+    .eq("class_type", class_type)
+    .eq("class_date", class_date);
+
+  if (error) {
+    console.error("[classes/slots]", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // ========================
+  // ② 汇总计数
+  // ========================
+  const counts: Record<string, number> = {};
+  for (const r of data || []) {
+    const start = (r.start_time as string)?.slice(0, 5);
+    const end = (r.end_time as string)?.slice(0, 5);
+    const key = `${start}-${end}`;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  // ========================
+  // ③ 当前用户报名过的时间段
+  // ========================
+  let mine: string[] = [];
+
+  if (token) {
+    // 注意：supabaseAdmin 没有 auth.getUser(token)
+    // 因此要用 fetch 调用 Supabase Auth API 来解析 token
+    const { data: userRes } = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+      }
+    ).then((r) => r.json().then((data) => ({ data })));
+
+    const uid = userRes?.id;
+    if (uid) {
+      mine = (data || [])
+        .filter((r) => r.user_id === uid)
+        .map(
+          (r) =>
+            `${(r.start_time as string)?.slice(0, 5)}-${(r.end_time as string)?.slice(0, 5)}`
+        );
+    }
+  }
+
+  return NextResponse.json({ counts, mine });
 }
