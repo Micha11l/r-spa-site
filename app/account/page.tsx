@@ -1,4 +1,3 @@
-// app/account/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -27,8 +26,8 @@ type Booking = {
 };
 
 type SlotInfo = {
-  start: string; // "06:30"
-  end: string;   // "07:30"
+  start: string;
+  end: string;
   count: number;
   capacity: number;
 };
@@ -37,21 +36,22 @@ const CAPACITY = 5;
 
 export default function AccountPage() {
   const supabase = supabaseBrowser();
-  const [email, setEmail] = useState<string>("");
+  const [email, setEmail] = useState("");
   const [profile, setProfile] = useState<Profile>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [past, setPast] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
 
-  // ----- Classes -----
+  // ====== 小班课 ======
   const [clsType, setClsType] = useState<"stretching" | "yoga" | "pilates">("stretching");
-  const [clsDate, setClsDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
+  const [clsDate, setClsDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [slots, setSlots] = useState<SlotInfo[]>([]);
-  const [clsBusy, setClsBusy] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [clsMsg, setClsMsg] = useState<string | null>(null);
+  const [mySlots, setMySlots] = useState<string[]>([]);
+  const [busySlots, setBusySlots] = useState<Set<string>>(new Set());
 
   // 当前用户
   useEffect(() => {
@@ -62,23 +62,21 @@ export default function AccountPage() {
     })();
   }, [supabase]);
 
-  // 读取 profile（RLS: 仅本人可读）
+  // 读取 profile
   useEffect(() => {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       const { data } = await supabase
         .from("profiles")
-        .select(
-          "first_name,last_name,phone,dob,street,city,postal,country,marketing_email"
-        )
+        .select("first_name,last_name,phone,dob,street,city,postal,country,marketing_email")
         .eq("id", u.user.id)
         .maybeSingle();
       if (data) setProfile(data as Profile);
     })();
   }, [supabase]);
 
-  // 读取我的预约：用服务端 API 按 email 聚合（避免暴露表结构）
+  // 获取预约
   useEffect(() => {
     if (!email) return;
     (async () => {
@@ -96,7 +94,7 @@ export default function AccountPage() {
     })();
   }, [email]);
 
-  // 保存资料（profiles）
+  // 保存资料
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -117,7 +115,6 @@ export default function AccountPage() {
         throw new Error(j?.error || "Failed to save");
       }
       setSaveMsg("Saved!");
-      // 同时把“快速结账”的三项资料放到本地，供 /booking 预填
       localStorage.setItem(
         "booking_preset",
         JSON.stringify({
@@ -134,14 +131,12 @@ export default function AccountPage() {
     }
   }
 
-  // ====== 小班课：列出当日各时段人数 ======
-  const slotTemplate: { start: string; end: string }[] = useMemo(
+  // ====== 小班课部分 ======
+  const slotTemplate = useMemo(
     () => [
-      // Morning
       { start: "06:30", end: "07:30" },
       { start: "07:30", end: "08:30" },
       { start: "08:30", end: "09:30" },
-      // Evening
       { start: "17:30", end: "18:30" },
       { start: "18:30", end: "19:30" },
       { start: "19:30", end: "20:30" },
@@ -150,15 +145,21 @@ export default function AccountPage() {
   );
 
   async function loadSlots() {
-    setClsBusy(true);
+    setLoadingSlots(true);
     setClsMsg(null);
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
       const url = new URL("/api/classes/slots", window.location.origin);
       url.searchParams.set("date", clsDate);
       url.searchParams.set("type", clsType);
-      const res = await fetch(url.toString(), { cache: "no-store" });
+      const res = await fetch(url.toString(), {
+        cache: "no-store",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const j = await res.json();
-      const counts: Record<string, number> = j.counts || {};
+      const counts = j.counts || {};
+      setMySlots(j.mine || []);
       setSlots(
         slotTemplate.map((t) => ({
           ...t,
@@ -169,22 +170,23 @@ export default function AccountPage() {
     } catch (e: any) {
       setClsMsg(e?.message || "Load failed");
     } finally {
-      setClsBusy(false);
+      setLoadingSlots(false);
     }
   }
 
   useEffect(() => {
     loadSlots();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clsDate, clsType]);
 
-  // 报名
   async function signUpForSlot(s: SlotInfo) {
-    setClsBusy(true);
+    const key = `${s.start}-${s.end}`;
+    setBusySlots((prev) => new Set([...prev, key]));
     setClsMsg(null);
+
     try {
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) throw new Error("Not signed in");
+
       const res = await fetch("/api/classes/signup", {
         method: "POST",
         headers: {
@@ -198,19 +200,23 @@ export default function AccountPage() {
           end: s.end,
         }),
       });
+
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Signup failed");
-      setClsMsg(j?.message || "Signed up!");
+      setClsMsg(j?.message || "Updated!");
       await loadSlots();
     } catch (e: any) {
       setClsMsg(e?.message || "Signup failed");
     } finally {
-      setClsBusy(false);
-      setTimeout(() => setClsMsg(null), 2500);
+      setBusySlots((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      setTimeout(() => setClsMsg(null), 2000);
     }
   }
 
-  // 退出
   async function signOut() {
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -218,87 +224,49 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
       <header className="flex flex-wrap items-center gap-4 justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My account</h1>
           {email && <p className="mt-1 text-zinc-600">Signed in as {email}</p>}
         </div>
-        <button onClick={signOut} className="btn btn-ghost">Sign out</button>
+        <button onClick={signOut} className="btn btn-ghost">
+          Sign out
+        </button>
       </header>
 
-      {/* 网格四卡 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Faster checkout / Profile */}
+        {/* Profile */}
         <section className="rounded-xl border bg-white p-4 md:p-6">
           <h2 className="text-xl font-semibold">Faster checkout</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Save your contact info. When you book, we’ll prefill your details to make checkout faster.
+            Save your contact info. When you book, we’ll prefill your details.
           </p>
 
           <form onSubmit={saveProfile} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm mb-1">First name</label>
-              <input
-                value={profile.first_name ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, first_name: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Last name</label>
-              <input
-                value={profile.last_name ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, last_name: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm mb-1">Phone</label>
-              <input
-                value={profile.phone ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-
-            {/* 地址（可选） */}
-            <div className="md:col-span-2">
-              <label className="block text-sm mb-1">Street</label>
-              <input
-                value={profile.street ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, street: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">City</label>
-              <input
-                value={profile.city ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">ZIP / Postal code</label>
-              <input
-                value={profile.postal ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, postal: e.target.value }))}
-                className="w-full"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm mb-1">Country</label>
-              <input
-                value={profile.country ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
-                className="w-full"
-              />
-            </div>
+            {[
+              ["First name", "first_name"],
+              ["Last name", "last_name"],
+              ["Phone", "phone"],
+              ["Street", "street"],
+              ["City", "city"],
+              ["ZIP / Postal code", "postal"],
+              ["Country", "country"],
+            ].map(([label, key]) => (
+              <div key={key} className={key === "street" ? "md:col-span-2" : ""}>
+                <label className="block text-sm mb-1">{label}</label>
+                <input
+                  value={(profile as any)[key] ?? ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, [key]: e.target.value }))}
+                  className="w-full border rounded px-2 py-1"
+                />
+              </div>
+            ))}
 
             <div className="md:col-span-2 flex items-center justify-between">
-              <div className="text-sm text-zinc-600">
-                We’ll also prefill your name, email and phone on the booking page.
-              </div>
+              <span className="text-sm text-zinc-600">
+                We’ll also prefill your info during booking.
+              </span>
               <button className="btn btn-primary" disabled={saving}>
                 {saving ? "Saving…" : "Save"}
               </button>
@@ -307,10 +275,12 @@ export default function AccountPage() {
           </form>
         </section>
 
-        {/* My bookings */}
+        {/* Bookings */}
         <section className="rounded-xl border bg-white p-4 md:p-6">
           <h2 className="text-xl font-semibold">Track appointments</h2>
-          <p className="mt-1 text-sm text-zinc-600">View upcoming and past appointments.</p>
+          <p className="mt-1 text-sm text-zinc-600">
+            View upcoming and past appointments.
+          </p>
 
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -328,12 +298,15 @@ export default function AccountPage() {
                         {dayjs(b.start_at).format("MMM D, YYYY h:mm A")} –{" "}
                         {dayjs(b.end_at).format("h:mm A")}
                       </div>
-                      {b.status && <div className="text-zinc-500 mt-1">Status: {b.status}</div>}
+                      {b.status && (
+                        <div className="text-zinc-500 mt-1">Status: {b.status}</div>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
+
             <div>
               <h3 className="font-medium">Past</h3>
               {loadingBookings ? (
@@ -357,16 +330,17 @@ export default function AccountPage() {
           </div>
 
           <div className="mt-4">
-            <a href="/booking" className="btn btn-ghost">Book another session</a>
+            <a href="/booking" className="btn btn-ghost">
+              Book another session
+            </a>
           </div>
         </section>
 
-        {/* Classes sign-up */}
+        {/* Small-group classes */}
         <section className="rounded-xl border bg-white p-4 md:p-6 lg:col-span-2">
           <h2 className="text-xl font-semibold">Small-group classes</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Stretching / Yoga / Pilates. Up to 5 people per class for an intimate group.
-            Morning: 6:30–9:30 AM · Evening: 5:30–8:30 PM. A class will run once 5 sign-ups are reached for a time slot.
+            Stretching / Yoga / Pilates. Up to 5 people per class. A class runs once 5 sign-ups are reached.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3 items-center">
@@ -385,31 +359,53 @@ export default function AccountPage() {
               value={clsDate}
               onChange={(e) => setClsDate(e.target.value)}
             />
-            <button className="btn btn-ghost" onClick={loadSlots} disabled={clsBusy}>
-              Refresh
+            <button className="btn btn-ghost" onClick={loadSlots} disabled={loadingSlots}>
+              {loadingSlots ? "Refreshing…" : "Refresh"}
             </button>
           </div>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {slots.map((s) => {
+              const key = `${s.start}-${s.end}`;
+              const isBusy = busySlots.has(key);
               const left = Math.max(0, s.capacity - s.count);
               const full = left === 0;
-              const ready = s.count >= s.capacity; // 满 5 人判定为“达到开班条件”
+              const isMine = mySlots.includes(key);
+              const ready = s.count >= s.capacity;
+
               return (
-                <div key={`${s.start}-${s.end}`} className="rounded border p-3">
+                <div key={key} className="rounded border p-3">
                   <div className="font-medium">
                     {s.start}–{s.end}
                   </div>
                   <div className="text-sm text-zinc-600 mt-1">
                     {s.count}/{s.capacity} signed up{" "}
-                    {ready ? <span className="text-green-600">• Ready to run</span> : null}
+                    {ready && <span className="text-green-600">• Ready to run</span>}
                   </div>
                   <button
-                    className="btn btn-primary mt-2 w-full"
-                    disabled={clsBusy || full}
+                    className={`btn w-full mt-2 transition-all ${
+                      isMine
+                        ? isBusy
+                          ? "btn-outline opacity-70 cursor-wait"
+                          : "btn-outline"
+                        : full
+                        ? "btn-disabled"
+                        : isBusy
+                        ? "btn-primary opacity-70 cursor-wait"
+                        : "btn-primary"
+                    }`}
+                    disabled={isBusy || (full && !isMine)}
                     onClick={() => signUpForSlot(s)}
                   >
-                    {full ? "Full" : "Sign up"}
+                    {isBusy
+                      ? isMine
+                        ? "Withdrawing..."
+                        : "Joining..."
+                      : isMine
+                      ? "Withdraw"
+                      : full
+                      ? "Full"
+                      : "Sign up"}
                   </button>
                 </div>
               );

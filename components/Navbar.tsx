@@ -13,7 +13,7 @@ const nav = [
   { href: "/learn-more", label: "Therapies" }, // 如果你的路由是 /therapies 改这里
   { href: "/bistro", label: "Bistro" },
   { href: "/booking", label: "Booking" },
-  { href: "/faq", label: "FAQ" },
+  { href: "/newsletter", label: "Newsletter" },
 ];
 
 const lineVariants = {
@@ -62,7 +62,7 @@ export default function Navbar() {
           .from("profiles")
           .select("first_name,last_name")
           .eq("id", u.id)
-          .single();
+          .maybeSingle();
         if (mounted) setProfile(p ?? null);
       }
     })();
@@ -75,7 +75,7 @@ export default function Navbar() {
         .from("profiles")
         .select("first_name,last_name")
         .eq("id", u.id)
-        .single()
+        .maybeSingle()
         .then(({ data }) => setProfile(data ?? null));
     });
 
