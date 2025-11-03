@@ -52,7 +52,7 @@ export default function Navbar() {
       const { data } = await supabase.auth.getSession();
       const u = data.session?.user ?? null;
       if (!mounted) return;
-
+  
       if (!u) {
         setEmail(null);
         setProfile(null);
@@ -63,10 +63,15 @@ export default function Navbar() {
           .select("first_name,last_name")
           .eq("id", u.id)
           .maybeSingle();
-        if (mounted) setProfile(p ?? null);
+        if (mounted && p) {
+          setProfile({
+            first_name: String(p.first_name ?? ""),
+            last_name: String(p.last_name ?? ""),
+          });
+        }
       }
     })();
-
+  
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       const u = session?.user ?? null;
       setEmail(u?.email ?? null);
@@ -76,9 +81,18 @@ export default function Navbar() {
         .select("first_name,last_name")
         .eq("id", u.id)
         .maybeSingle()
-        .then(({ data }) => setProfile(data ?? null));
+        .then(({ data }) =>
+          setProfile(
+            data
+              ? {
+                  first_name: String(data.first_name ?? ""),
+                  last_name: String(data.last_name ?? ""),
+                }
+              : null
+          )
+        );
     });
-
+  
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
