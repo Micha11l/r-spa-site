@@ -30,3 +30,31 @@ input, select, textarea {
 }
 label { @apply text-sm uppercase tracking-wider text-ash; }
 small { @apply text-ash; }
+/* ==== FullCalendar Mobile Optimization ==== */
+@media (max-width: 640px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 1.05rem;
+  }
+
+  .fc .fc-daygrid-day-top {
+    padding: 0.1rem 0.25rem;
+  }
+
+  .fc-event {
+    font-size: 0.7rem !important;
+    line-height: 1rem !important;
+    padding: 1px 3px !important;
+    border-radius: 4px !important;
+    white-space: normal !important;
+  }
+
+  .fc .fc-day-today {
+    background-color: rgba(254, 240, 138, 0.3) !important;
+  }
+}

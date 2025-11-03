@@ -92,8 +92,12 @@ export default function Navbar() {
 
   // 动画
   const overlayVar = { hidden: { opacity: 0 }, show: { opacity: 1 }, exit: { opacity: 0 } };
-  const drawerVar  = { hidden: { x: "100%" }, show: { x: 0 }, exit: { x: "100%" } };
-
+  const drawerVar = {
+    hidden: { opacity: 0, y: -10, scale: 0.98 },
+    show: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -10, scale: 0.98 },
+  };
+  
   return (
     <>
       {/* header z-40，抽屉会在它之上 */}
@@ -173,40 +177,45 @@ export default function Navbar() {
       {/* 抽屉放在 header 外，z-50，白底不透，文字对比清晰 */}
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            className="fixed inset-0 z-50 md:hidden"
-            variants={overlayVar}
-            initial="hidden"
-            animate="show"
-            exit="exit"
-            onClick={() => setOpen(false)}
-          >
-            <div className="absolute inset-0 bg-black/40" />
-            <motion.aside
-              variants={drawerVar}
-              initial="hidden"
-              animate="show"
-              exit="exit"
-              transition={{ type: "spring", stiffness: 280, damping: 30 }}
-              className="absolute right-0 top-0 h-full w-[84%] max-w-sm bg-white shadow-2xl border-l
-                         pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] p-6
-                         flex flex-col text-zinc-900"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <nav className="flex-1 space-y-6 text-2xl font-serif">
+         <motion.div
+         className="fixed inset-0 z-50 md:hidden"
+         variants={overlayVar}
+         initial="hidden"
+         animate="show"
+         exit="exit"
+         onClick={() => setOpen(false)}
+       >
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+
+         <motion.aside
+           variants={drawerVar}
+           initial="hidden"
+           animate="show"
+           exit="exit"
+           transition={{ type: "spring", stiffness: 280, damping: 30 }}
+           className="
+              absolute right-4 top-[5.5rem]
+              w-[min(85%,20rem)]
+              bg-white/95 backdrop-blur-xl
+              rounded-2xl shadow-2xl border border-white/40
+              p-5 flex flex-col gap-3 text-zinc-900
+           "
+           onClick={(e) => e.stopPropagation()}
+         >
+              <nav className="space-y-3 text-base font-serif">
                 {nav.map((i) => (
-                  <Link key={i.href} href={i.href} className="block hover:text-ink transition-colors">
+                  <Link key={i.href} href={i.href} className="block hover:text-ink transition-colors py-2">
                     {i.label}
                   </Link>
                 ))}
               </nav>
 
               {email ? (
-                <Link href="/account" className="btn btn-primary w-full">
-                  My Account{accountLabel ? <span className="ml-1 opacity-80">({accountLabel})</span> : null}
+                <Link href="/account" className="btn btn-primary w-full text-sm">
+                  My Account{accountLabel ? <span className="ml-1 opacity-80 text-xs">({accountLabel})</span> : null}
                 </Link>
               ) : (
-                <Link href="/sign-in" className="btn btn-primary w-full">
+                <Link href="/sign-in" className="btn btn-primary w-full text-sm">
                   Sign in
                 </Link>
               )}
