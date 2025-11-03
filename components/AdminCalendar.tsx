@@ -13,7 +13,6 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
 
-// ---- FullCalendar 类型（关键：给 dynamic 指定 props 泛型，修复 TS 报错）----
 import type {
   CalendarOptions,
   EventInput,
@@ -22,12 +21,10 @@ import type {
   EventClickArg,
 } from "@fullcalendar/core";
 
-// 插件常规 import（不要 dynamic）
 import interactionPlugin from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 
-// React 组件用 dynamic，引入 default 并禁用 SSR
 const FullCalendar = dynamic<CalendarOptions>(
   () => import("@fullcalendar/react").then((m) => m.default),
   { ssr: false }
@@ -38,12 +35,11 @@ dayjs.extend(tz);
 
 const TZ = process.env.NEXT_PUBLIC_TZ || "America/Toronto";
 
-// ---- 数据类型 ----
 type Booking = {
   id?: string;
   service_name: string;
-  start_ts: string; // ISO
-  end_ts: string; // ISO
+  start_ts: string;
+  end_ts: string;
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
@@ -51,20 +47,19 @@ type Booking = {
   status?: "pending" | "confirmed" | "cancelled";
 };
 
-// ---- 小工具 ----
 function statusColor(s?: Booking["status"]) {
   switch (s) {
     case "confirmed":
-      return "#16a34a"; // green
+      return "#16a34a";
     case "cancelled":
-      return "#ef4444"; // red
+      return "#ef4444";
     default:
-      return "#f59e0b"; // amber (pending)
+      return "#f59e0b";
   }
 }
 
-function toTZ(iso: string) {
-  // 统一做时区归一化，避免 Invalid Date
+function toTZ(iso?: string) {
+  if (!iso) return undefined;
   return dayjs(iso).tz(TZ).toISOString();
 }
 
@@ -72,11 +67,8 @@ export default function AdminCalendar() {
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 记录当前“可视范围”，供轮询和聚焦刷新使用
   const rangeRef = useRef<{ fromISO: string; toISO: string } | null>(null);
 
-  // 转换为 FullCalendar 事件
   const events: EventInput[] = useMemo(
     () =>
       items.map((b) => ({
@@ -84,8 +76,11 @@ export default function AdminCalendar() {
         title: `${b.service_name} · ${b.customer_name}`,
         start: toTZ(b.start_ts || (b as any).start),
         end: toTZ(b.end_ts || (b as any).end),
+        allDay: false, // ✅ 关键：确保 day/week 视图按时间段显示
         backgroundColor: statusColor(b.status),
         borderColor: statusColor(b.status),
+        textColor: "#111",
+        display: "block",
         extendedProps: {
           status: b.status,
           phone: b.customer_phone,
@@ -96,12 +91,10 @@ export default function AdminCalendar() {
     [items]
   );
 
-  // 拉取指定范围
   const fetchRange = useCallback(async (fromISO: string, toISO: string) => {
     try {
       setLoading(true);
       setError(null);
-
       const url = new URL("/api/admin/bookings", window.location.origin);
       url.searchParams.set("from", fromISO);
       url.searchParams.set("to", toISO);
@@ -109,8 +102,19 @@ export default function AdminCalendar() {
       const res = await fetch(url.toString(), { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const j = await res.json();
-      console.log("Fetched bookings:", j);
-      setItems(Array.isArray(j) ? j : Array.isArray(j.items) ? j.items : []);
+
+      setItems(
+        (Array.isArray(j) ? j : j.items || []).map((r: any) => ({
+          id: r.id,
+          service_name: r.title?.replace(/\s*\(cancelled\)$/, "") ?? "",
+          start_ts: r.start,
+          end_ts: r.end,
+          customer_name: r.name ?? "",
+          customer_phone: r.phone ?? "",
+          notes: r.notes ?? "",
+          status: r.status ?? "pending",
+        }))
+      );
     } catch (e: any) {
       console.error("[admin calendar] load error", e);
       setItems([]);
@@ -120,7 +124,6 @@ export default function AdminCalendar() {
     }
   }, []);
 
-  // 首次加载：取“本月”范围
   useEffect(() => {
     const fromISO = dayjs().startOf("month").tz(TZ).toISOString();
     const toISO = dayjs().endOf("month").tz(TZ).toISOString();
@@ -128,7 +131,6 @@ export default function AdminCalendar() {
     fetchRange(fromISO, toISO);
   }, [fetchRange]);
 
-  // 视图切换/日期跳转时，更新范围并请求
   const handleDatesSet = useCallback(
     (arg: DatesSetArg) => {
       const fromISO = dayjs(arg.start).tz(TZ).toISOString();
@@ -139,7 +141,6 @@ export default function AdminCalendar() {
     [fetchRange]
   );
 
-  // 每 60s 自动刷新
   useEffect(() => {
     const id = setInterval(() => {
       if (rangeRef.current) {
@@ -150,7 +151,6 @@ export default function AdminCalendar() {
     return () => clearInterval(id);
   }, [fetchRange]);
 
-  // 窗口获得焦点时刷新
   useEffect(() => {
     const onFocus = () => {
       if (rangeRef.current) {
@@ -162,12 +162,9 @@ export default function AdminCalendar() {
     return () => window.removeEventListener("focus", onFocus);
   }, [fetchRange]);
 
-  // 点击事件：格式化展示，避免 undefined / Invalid Date
   const handleEventClick = useCallback((info: EventClickArg) => {
     const ev = info.event;
-    const start = ev.start
-      ? dayjs(ev.start).tz(TZ).format("MMM D, h:mm A")
-      : "";
+    const start = ev.start ? dayjs(ev.start).tz(TZ).format("MMM D, h:mm A") : "";
     const end = ev.end ? dayjs(ev.end).tz(TZ).format("h:mm A") : "";
     const p = ev.extendedProps as any;
     const lines = [
@@ -208,15 +205,9 @@ export default function AdminCalendar() {
         </span>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="text-sm text-zinc-500">Loading calendar…</div>
-        }
-      >
+      <Suspense fallback={<div className="text-sm text-zinc-500">Loading calendar…</div>}>
         <FullCalendar
-          plugins={
-            [interactionPlugin, dayGridPlugin, timeGridPlugin] as PluginDef[]
-          }
+          plugins={[interactionPlugin, dayGridPlugin, timeGridPlugin] as PluginDef[]}
           initialView="dayGridMonth"
           headerToolbar={{
             left: "prev,next today",
@@ -224,26 +215,32 @@ export default function AdminCalendar() {
             right: "dayGridMonth,timeGridWeek,timeGridDay",
           }}
           height="auto"
+          aspectRatio={0.95}
+          eventDisplay="block"
+          eventTextColor="#111"
+          eventBorderColor="transparent"
+          slotMinTime="08:00:00"
+          slotMaxTime="22:00:00"
+          expandRows
+          nowIndicator
+          dayMaxEvents={2}
+          moreLinkText={(n) => `+${n} more`}
+          handleWindowResize
+          slotEventOverlap={false}
           events={events as EventInput[]}
-          eventTimeFormat={{
-            hour: "2-digit",
-            minute: "2-digit",
-            meridiem: true,
-          }}
           datesSet={handleDatesSet}
           eventClick={handleEventClick}
+          dayCellContent={(arg) => ({
+            html: `<div class="text-[11px] sm:text-[12px] font-medium">${arg.dayNumberText}</div>`,
+          })}
         />
       </Suspense>
 
       {loading && <div className="mt-3 text-sm text-zinc-500">Refreshing…</div>}
       {!loading && !error && events.length === 0 && (
-        <div className="mt-3 text-sm text-zinc-500">
-          No bookings in this range.
-        </div>
+        <div className="mt-3 text-sm text-zinc-500">No bookings in this range.</div>
       )}
-      {error && (
-        <div className="mt-3 text-sm text-red-600">Failed to load: {error}</div>
-      )}
+      {error && <div className="mt-3 text-sm text-red-600">Failed to load: {error}</div>}
     </div>
   );
 }
