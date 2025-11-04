@@ -4,7 +4,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
 import { makeICS } from "./ics";
-
+import { Resend } from "resend";
+import { buildEmailTemplate } from "./emailTemplates";
 dayjs.extend(utc);
 dayjs.extend(tz);
 
@@ -34,6 +35,47 @@ const FROM_ADDR =
 const BCC_OWNER =
   (process.env.EMAIL_BCC_OWNER ??
     (process.env.NODE_ENV !== "production" ? "true" : "false")) === "true";
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
+export async function sendDepositEmail(to: string, name: string, checkoutUrl: string) {
+  const { subject, html } = buildEmailTemplate("deposit", name, { checkoutUrl });
+  await resend.emails.send({
+    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+    to,
+    subject,
+    html,
+  });
+}
+
+export async function sendRefuseEmail(to: string, name: string, reason?: string) {
+  const { subject, html } = buildEmailTemplate("refuse", name, { reason });
+  await resend.emails.send({
+    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+    to,
+    subject,
+    html,
+  });
+}
+
+export async function sendPaymentSuccessEmail(
+  to: string,
+  name: string,
+  serviceName: string,
+  time: string
+) {
+  const { subject, html } = buildEmailTemplate("payment_success", name, {
+    serviceName,
+    time,
+  });
+  await resend.emails.send({
+    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+    to,
+    subject,
+    html,
+  });
+}
+
 
 function buildTransport() {
   const host = process.env.ZOHO_SMTP_HOST || "smtp.zohocloud.ca";
