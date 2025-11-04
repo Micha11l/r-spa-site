@@ -1,4 +1,4 @@
-//api/page.tsx
+//app/admin/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -138,7 +138,7 @@ export default function AdminPage() {
 
   return (
     <div className="flex min-h-screen bg-zinc-50 text-zinc-800">
-      {/* Sidebar (Desktop) */}
+      {/* Sidebar (Desktop)
       <aside className="hidden md:flex w-64 flex-col border-r bg-white shadow-sm">
         <div className="p-4 border-b">
           <Link href="/" className="text-xl font-serif underline underline-offset-4">
@@ -166,10 +166,10 @@ export default function AdminPage() {
             </button>
           </form>
         </div>
-      </aside>
+      </aside> */}
 
       {/* Mobile Sidebar */}
-      <button
+      {/* <button
         onClick={() => setOpen((v) => !v)}
         className="md:hidden fixed top-4 left-4 z-50 rounded-lg border bg-white px-2 py-2 shadow-sm"
         aria-label="Menu"
@@ -180,7 +180,7 @@ export default function AdminPage() {
           <span className="block h-0.5 w-5 bg-zinc-800" />
           <span className="block h-0.5 w-5 bg-zinc-800" />
         </div>
-      </button>
+      </button> */}
 
       <AnimatePresence>
         {open && (
