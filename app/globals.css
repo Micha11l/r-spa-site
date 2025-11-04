@@ -58,3 +58,18 @@ small { @apply text-ash; }
     background-color: rgba(254, 240, 138, 0.3) !important;
   }
 }
+/* 手机端优化日历字体 */
+@media (max-width: 768px) {
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+  .fc .fc-event {
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    padding: 2px 4px !important;
+  }
+  .fc .fc-list-event-time {
+    font-weight: 500;
+    color: #2563eb; /* Tailwind blue-600 */
+  }
+}

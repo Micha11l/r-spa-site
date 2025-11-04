@@ -1,9 +1,13 @@
+//api/admin/update/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const { id, status } = await req.json();
-  if (!id || !["pending", "confirmed", "cancelled"].includes(status)) {
+  if (
+    !id ||
+    !["pending", "confirmed", "cancelled", "deposit_sent", "refused"].includes(status)
+  ) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
   const { error } = await supabaseAdmin.from("bookings").update({ status }).eq("id", id);

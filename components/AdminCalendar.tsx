@@ -1,246 +1,285 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import tz from "dayjs/plugin/timezone";
-
-import type {
-  CalendarOptions,
-  EventInput,
-  PluginDef,
-  DatesSetArg,
-  EventClickArg,
-} from "@fullcalendar/core";
-
-import interactionPlugin from "@fullcalendar/interaction";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 
-const FullCalendar = dynamic<CalendarOptions>(
-  () => import("@fullcalendar/react").then((m) => m.default),
-  { ssr: false }
-);
-
-dayjs.extend(utc);
-dayjs.extend(tz);
-
-const TZ = process.env.NEXT_PUBLIC_TZ || "America/Toronto";
-
-type Booking = {
-  id?: string;
-  service_name: string;
-  start_ts: string;
-  end_ts: string;
-  customer_name: string;
-  customer_email?: string;
-  customer_phone?: string;
+type BookingEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  status: string;
+  name: string;
+  email: string;
+  phone: string;
   notes?: string;
-  status?: "pending" | "confirmed" | "cancelled";
 };
 
-function statusColor(s?: Booking["status"]) {
-  switch (s) {
-    case "confirmed":
-      return "#16a34a";
-    case "cancelled":
-      return "#ef4444";
-    default:
-      return "#f59e0b";
-  }
-}
+type Props = {
+  onEventClick?: (event: any) => void;
+};
 
-function toTZ(iso?: string) {
-  if (!iso) return undefined;
-  return dayjs(iso).tz(TZ).toISOString();
-}
+export default function AdminCalendar({ onEventClick }: Props) {
+  const [events, setEvents] = useState<BookingEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
-export default function AdminCalendar() {
-  const [items, setItems] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const rangeRef = useRef<{ fromISO: string; toISO: string } | null>(null);
+  // ✅ 监听窗口宽度
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  const events: EventInput[] = useMemo(
-    () =>
-      items.map((b) => ({
-        id: b.id || `${b.customer_email ?? b.customer_phone}-${b.start_ts}`,
-        title: `${b.service_name} · ${b.customer_name}`,
-        start: toTZ(b.start_ts || (b as any).start),
-        end: toTZ(b.end_ts || (b as any).end),
-        allDay: false, // ✅ 关键：确保 day/week 视图按时间段显示
-        backgroundColor: statusColor(b.status),
-        borderColor: statusColor(b.status),
-        textColor: "#111",
-        display: "block",
-        extendedProps: {
-          status: b.status,
-          phone: b.customer_phone,
-          email: b.customer_email,
-          notes: b.notes,
-        },
-      })),
-    [items]
-  );
-
-  const fetchRange = useCallback(async (fromISO: string, toISO: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const url = new URL("/api/admin/bookings", window.location.origin);
-      url.searchParams.set("from", fromISO);
-      url.searchParams.set("to", toISO);
-
-      const res = await fetch(url.toString(), { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const j = await res.json();
-
-      setItems(
-        (Array.isArray(j) ? j : j.items || []).map((r: any) => ({
-          id: r.id,
-          service_name: r.title?.replace(/\s*\(cancelled\)$/, "") ?? "",
-          start_ts: r.start,
-          end_ts: r.end,
-          customer_name: r.name ?? "",
-          customer_phone: r.phone ?? "",
-          notes: r.notes ?? "",
-          status: r.status ?? "pending",
-        }))
-      );
-    } catch (e: any) {
-      console.error("[admin calendar] load error", e);
-      setItems([]);
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
+  // ✅ 获取数据
+  useEffect(() => {
+    async function loadBookings() {
+      try {
+        const res = await fetch("/api/admin/bookings");
+        const data = await res.json();
+        setEvents(data || []);
+      } catch {
+        toast.error("Failed to load events");
+      }
     }
+    loadBookings();
   }, []);
 
-  useEffect(() => {
-    const fromISO = dayjs().startOf("month").tz(TZ).toISOString();
-    const toISO = dayjs().endOf("month").tz(TZ).toISOString();
-    rangeRef.current = { fromISO, toISO };
-    fetchRange(fromISO, toISO);
-  }, [fetchRange]);
-
-  const handleDatesSet = useCallback(
-    (arg: DatesSetArg) => {
-      const fromISO = dayjs(arg.start).tz(TZ).toISOString();
-      const toISO = dayjs(arg.end).tz(TZ).toISOString();
-      rangeRef.current = { fromISO, toISO };
-      fetchRange(fromISO, toISO);
-    },
-    [fetchRange]
-  );
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (rangeRef.current) {
-        const { fromISO, toISO } = rangeRef.current;
-        fetchRange(fromISO, toISO);
-      }
-    }, 60_000);
-    return () => clearInterval(id);
-  }, [fetchRange]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      if (rangeRef.current) {
-        const { fromISO, toISO } = rangeRef.current;
-        fetchRange(fromISO, toISO);
-      }
+  // ✅ 格式化时间
+  function formatTimeRange(start: string, end: string) {
+    const s = new Date(start);
+    const e = new Date(end);
+    const opts: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [fetchRange]);
-
-  const handleEventClick = useCallback((info: EventClickArg) => {
-    const ev = info.event;
-    const start = ev.start ? dayjs(ev.start).tz(TZ).format("MMM D, h:mm A") : "";
-    const end = ev.end ? dayjs(ev.end).tz(TZ).format("h:mm A") : "";
-    const p = ev.extendedProps as any;
-    const lines = [
-      ev.title,
-      `${start} - ${end}`,
-      p?.status ? `Status: ${p.status}` : "",
-      p?.phone ? `Phone: ${p.phone}` : "",
-      p?.email ? `Email: ${p.email}` : "",
-      p?.notes ? `Notes: ${p.notes}` : "",
-    ].filter(Boolean);
-    alert(lines.join("\n"));
-  }, []);
+    return `${s.toLocaleDateString()} ${s.toLocaleTimeString([], opts)} → ${e.toLocaleTimeString([], opts)}`;
+  }
 
   return (
-    <div className="rounded-xl border bg-white p-3 md:p-4">
-      {/* 图例 */}
-      <div className="mb-3 flex flex-wrap gap-3 text-sm">
-        <span className="inline-flex items-center gap-2">
-          <i
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: statusColor("pending") }}
-          />
-          Pending
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <i
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: statusColor("confirmed") }}
-          />
-          Confirmed
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <i
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: statusColor("cancelled") }}
-          />
-          Cancelled
-        </span>
-      </div>
+    <div className="relative w-full">
+      <FullCalendar
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+        initialView={isMobile ? "listWeek" : "dayGridMonth"}
+        headerToolbar={{
+          left: "prev,next today",
+          center: "title",
+          right: isMobile ? "" : "dayGridMonth,timeGridWeek,timeGridDay",
+        }}
+        height="auto"
+        events={events}
+        eventTimeFormat={{
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }}
+        views={{
+          listWeek: {
+            listDayFormat: { weekday: "short", month: "short", day: "numeric" },
+            listDaySideFormat: false,
+          },
+        }}
+        eventClick={(info) => {
+          const event = info.event.extendedProps as BookingEvent;
+          const fullEvent = {
+            id: info.event.id,
+            title: info.event.title,
+            start: info.event.startStr,
+            end: info.event.endStr,
+            ...event,
+          };
 
-      <Suspense fallback={<div className="text-sm text-zinc-500">Loading calendar…</div>}>
-        <FullCalendar
-          plugins={[interactionPlugin, dayGridPlugin, timeGridPlugin] as PluginDef[]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
-          }}
-          height="auto"
-          aspectRatio={0.95}
-          eventDisplay="block"
-          eventTextColor="#111"
-          eventBorderColor="transparent"
-          slotMinTime="08:00:00"
-          slotMaxTime="22:00:00"
-          expandRows
-          nowIndicator
-          dayMaxEvents={2}
-          moreLinkText={(n) => `+${n} more`}
-          handleWindowResize
-          slotEventOverlap={false}
-          events={events as EventInput[]}
-          datesSet={handleDatesSet}
-          eventClick={handleEventClick}
-          dayCellContent={(arg) => ({
-            html: `<div class="text-[11px] sm:text-[12px] font-medium">${arg.dayNumberText}</div>`,
-          })}
-        />
-      </Suspense>
+          if (window.innerWidth < 768) {
+            // ✅ 手机端直接打开底部弹窗
+            setSelectedEvent(fullEvent);
+            return;
+          }
 
-      {loading && <div className="mt-3 text-sm text-zinc-500">Refreshing…</div>}
-      {!loading && !error && events.length === 0 && (
-        <div className="mt-3 text-sm text-zinc-500">No bookings in this range.</div>
+          if (onEventClick) onEventClick(fullEvent);
+        }}
+      />
+
+      {/* ✅ 移动端底部滑出详情 */}
+{/* ✅ 移动端底部滑出详情 (新版) */}
+{/* ✅ 移动端底部滑出详情（带拖拽关闭） */}
+{/* ✅ 移动端底部滑出详情（带操作按钮 + 拖拽关闭） */}
+{typeof window !== "undefined" &&
+  createPortal(
+    <AnimatePresence>
+      {selectedEvent && isMobile && (
+        <>
+          {/* 背景遮罩 */}
+          <motion.div
+            className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedEvent(null)}
+          />
+
+          {/* 底部弹窗 */}
+          <motion.div
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100) setSelectedEvent(null);
+            }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 240, damping: 25 }}
+            className="fixed left-0 right-0 bottom-0 z-[9999]
+                       bg-white rounded-t-[2rem] shadow-[0_-8px_30px_rgba(0,0,0,0.1)]
+                       p-6 max-h-[85vh] overflow-y-auto
+                       pb-[env(safe-area-inset-bottom)] touch-pan-y"
+          >
+            {/* 顶部拖拽线 */}
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-zinc-300" />
+
+            {/* 内容区 */}
+            <div className="space-y-2 text-sm text-zinc-700">
+              <h3 className="text-lg font-semibold text-zinc-900">
+                {selectedEvent.title}
+              </h3>
+
+              <p>
+                <strong>Name:</strong> {selectedEvent.name || "—"}
+              </p>
+              <p>
+                <strong>Phone:</strong> {selectedEvent.phone || "—"}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <span
+                  className={
+                    selectedEvent.status === "confirmed"
+                      ? "text-green-600"
+                      : selectedEvent.status === "pending"
+                      ? "text-yellow-600"
+                      : "text-zinc-500"
+                  }
+                >
+                  {selectedEvent.status}
+                </span>
+              </p>
+              <p>
+                <strong>Time:</strong>{" "}
+                {new Date(selectedEvent.start).toLocaleString()} →{" "}
+                {new Date(selectedEvent.end).toLocaleTimeString()}
+              </p>
+              {selectedEvent.notes && (
+                <p>
+                  <strong>Notes:</strong> {selectedEvent.notes}
+                </p>
+              )}
+            </div>
+
+            {/* 操作按钮区 */}
+{/* 操作按钮区 */}
+<div className="mt-6 flex flex-col sm:flex-row gap-3">
+  <motion.button
+    whileTap={{ scale: 0.96 }}
+    onClick={async () => {
+      const tId = toast.loading("Sending deposit email...");
+      try {
+        const checkoutUrl = `${window.location.origin}/pay/${selectedEvent.id}`;
+
+        const res = await fetch("/api/email/deposit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: selectedEvent.email,
+            name: selectedEvent.name,
+            checkoutUrl,
+          }),
+        });
+
+        const msg = await res.text();
+
+        if (!res.ok) {
+          throw new Error(msg || "Failed to send deposit email");
+        }
+
+        await fetch("/api/admin/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: selectedEvent.id, status: "deposit-sent" }),
+        });
+
+        toast.success("✅ Deposit email sent!", { id: tId });
+      } catch (e: any) {
+        toast.error(`❌ ${e.message}`, { id: tId });
+      } finally {
+        setSelectedEvent(null);
+      }
+    }}
+    className="flex-1 rounded-md bg-green-600 hover:bg-green-700 text-white py-2 text-sm font-medium shadow-sm active:scale-95"
+  >
+    ✅ Send Deposit Email
+  </motion.button>
+
+  <motion.button
+    whileTap={{ scale: 0.96 }}
+    onClick={async () => {
+      const tId = toast.loading("Sending refusal...");
+      try {
+        const res = await fetch("/api/email/refuse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: selectedEvent.email,
+            name: selectedEvent.name,
+          }),
+        });
+
+        const msg = await res.text();
+        if (!res.ok) throw new Error(msg || "Failed to send refusal email");
+
+        await fetch("/api/admin/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: selectedEvent.id, status: "cancelled" }),
+        });
+
+        toast.success("❌ Booking refused", { id: tId });
+      } catch (e: any) {
+        toast.error(`⚠️ ${e.message}`, { id: tId });
+      } finally {
+        setSelectedEvent(null);
+      }
+    }}
+    className="flex-1 rounded-md bg-red-600 hover:bg-red-700 text-white py-2 text-sm font-medium shadow-sm active:scale-95"
+  >
+    ❌ Refuse Booking
+  </motion.button>
+</div>
+
+
+            {/* 关闭按钮 */}
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </>
       )}
-      {error && <div className="mt-3 text-sm text-red-600">Failed to load: {error}</div>}
+    </AnimatePresence>,
+    document.body
+  )}
+
     </div>
   );
 }

@@ -1,78 +1,104 @@
+// app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { headers } from "next/headers";
-import { Resend } from "resend";
+import { sendPaymentSuccessEmail } from "@/lib/emails";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+export const runtime = "nodejs"; // 确保 Webhook 运行在 Node 环境中
+export const dynamic = "force-dynamic";
 
+// ✅ Stripe Webhook handler
 export async function POST(req: Request) {
-  const body = await req.text();
-  const sig = headers().get("stripe-signature")!;
-  let evt;
+  const sig = headers().get("stripe-signature");
+  if (!sig) {
+    console.error("[stripe webhook] Missing signature header");
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+
+  let event;
+  const rawBody = await req.text();
 
   try {
-    evt = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err: any) {
-    console.error("[stripe webhook] signature error", err.message);
-    return NextResponse.json({ error: "invalid signature" }, { status: 400 });
+    console.error("[stripe webhook] signature error:", err.message);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    if (evt.type === "checkout.session.completed") {
-      const s = evt.data.object as any;
-      const pi = s.payment_intent as string | undefined;
-      const booking_id = s.metadata?.booking_id;
+    // ✅ 只监听付款成功事件
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
+      const bookingId = session.metadata?.booking_id;
+      const paymentIntent = session.payment_intent as string | null;
 
-      if (!booking_id) {
+      if (!bookingId) {
         console.warn("[stripe webhook] Missing booking_id in metadata");
         return NextResponse.json({ ok: false, reason: "no booking_id" });
       }
 
-      const supabase = supabaseAdmin;
+      console.log(`[stripe webhook] Payment success for booking ${bookingId}`);
 
-      // ✅ 更新 booking 状态
-      const { error: updErr } = await supabase
+      // ✅ 更新 Supabase 数据库
+      const { error: updateError } = await supabaseAdmin
         .from("bookings")
         .update({
           status: "confirmed",
-          payment_intent_id: pi ?? null,
+          payment_intent_id: paymentIntent ?? null,
           deposit_paid: true,
           deposit_paid_at: new Date().toISOString(),
         })
-        .eq("id", booking_id);
+        .eq("id", bookingId);
 
-      if (updErr) console.error("[stripe webhook] update failed", updErr);
+      if (updateError) {
+        console.error("[stripe webhook] DB update failed:", updateError);
+      }
 
-      // ✅ 查询并发送确认邮件
-      const { data: bk, error: readErr } = await supabase
+      // ✅ 读取客户信息
+      const { data: booking, error: readError } = await supabaseAdmin
         .from("bookings")
-        .select("customer_email, customer_name, service_name, start_at, deposit_cents")
-        .eq("id", booking_id)
+        .select(
+          "customer_email, customer_name, service_name, start_at, deposit_cents"
+        )
+        .eq("id", bookingId)
         .maybeSingle();
 
-      if (readErr) console.error("[stripe webhook] read failed", readErr);
+      if (readError) {
+        console.error("[stripe webhook] Failed to read booking:", readError);
+        return NextResponse.json({ error: "DB read failed" }, { status: 500 });
+      }
 
-      if (bk?.customer_email) {
-        await resend.emails.send({
-          from: "Rejuvenessence <noreply@rejuvenessence.org>",
-          to: [bk.customer_email],
-          subject: "Your appointment is confirmed",
-          html: `
-            <p>Hi ${bk.customer_name || ""},</p>
-            <p>Your deposit has been received. Your appointment for <b>${bk.service_name}</b> is now <b>confirmed</b>.</p>
-            <p>Time: ${bk.start_at}</p>
-            <p>Deposit received: $${((bk.deposit_cents || 0) / 100).toFixed(2)}</p>
-            <p>Free cancel ≥48h; within 24h deposit is non-refundable.</p>
-            <p>See you soon!</p>
-          `,
+      // ✅ 发送确认邮件
+      if (booking?.customer_email && booking?.service_name && booking?.start_at) {
+        const email = booking.customer_email;
+        const name = booking.customer_name || "Guest";
+        const service = booking.service_name;
+        const start = new Date(booking.start_at).toLocaleString("en-CA", {
+          timeZone: "America/Toronto",
+          dateStyle: "medium",
+          timeStyle: "short",
         });
+
+        try {
+          await sendPaymentSuccessEmail(email, name, service, start);
+          console.log(`[email] Payment confirmation sent to ${email}`);
+        } catch (mailErr: any) {
+          console.error("[email] Failed to send payment confirmation:", mailErr);
+        }
+      } else {
+        console.warn("[stripe webhook] Missing customer email or service name");
       }
     }
 
+    // ✅ 返回成功响应
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error("[stripe webhook] error", err);
-    return NextResponse.json({ error: "webhook failed" }, { status: 500 });
+    console.error("[stripe webhook] Unhandled error:", err);
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
