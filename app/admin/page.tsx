@@ -22,10 +22,14 @@ type Booking = {
 export default function AdminPage() {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<Booking[]>([]);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [confirmModal, setConfirmModal] = useState<{
     type: "deposit" | "refuse";
     booking: Booking;
   } | null>(null);
+
+  const triggerCalendarRefresh = () =>
+    setCalendarRefreshKey((key) => key + 1);
 
   // 🔒 Prevent background scroll when mobile drawer open
   useEffect(() => {
@@ -45,12 +49,25 @@ export default function AdminPage() {
 
   async function refreshPending() {
     try {
-      const res = await fetch("/api/admin/bookings?status=pending");
+      const res = await fetch("/api/admin/bookings?status=pending", {
+        cache: "no-store",
+      });
       const data = await res.json();
-      setPending(data || []);
-    } catch {
-      toast.error("Failed to load bookings");
+
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error(data?.error || "Failed to load bookings");
+      }
+
+      setPending(data);
+    } catch (err: any) {
+      console.error("[AdminPage] refreshPending", err);
+      toast.error(err?.message || "Failed to load bookings");
     }
+  }
+
+  async function handleRefreshAll() {
+    triggerCalendarRefresh();
+    await refreshPending();
   }
 
   async function updateStatus(id: string, status: string) {
@@ -81,7 +98,8 @@ export default function AdminPage() {
   
       await updateStatus(b.id, "awaiting_deposit");
       toast.success("Deposit email sent!", { id: loadingId });
-      refreshPending();
+      await refreshPending();
+      triggerCalendarRefresh();
     } catch (e: any) {
       toast.error(e.message || "Failed to send deposit email", { id: loadingId });
     } finally {
@@ -107,7 +125,8 @@ export default function AdminPage() {
   
       await updateStatus(b.id, "cancelled");
       toast.success("Refusal email sent.", { id: loadingId });
-      refreshPending();
+      await refreshPending();
+      triggerCalendarRefresh();
     } catch (e: any) {
       toast.error(e.message || "Failed to send refusal email", { id: loadingId });
     } finally {
@@ -131,10 +150,10 @@ export default function AdminPage() {
     exit: { opacity: 0, scale: 0.9, y: 40 },
   };
 
-  const handleEventClick = (booking: any) => {
+  const handleEventClick = (event: any) => {
     if (window.innerWidth < 768) return;
-    setConfirmModal({ type: "deposit", booking});
-  }
+    setConfirmModal({ type: "deposit", booking: event });
+  };
 
   return (
     <div className="flex min-h-screen bg-zinc-50 text-zinc-800">
@@ -225,12 +244,19 @@ export default function AdminPage() {
       {/* Main */}
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="mx-auto max-w-6xl space-y-8">
-          <h1 className="text-2xl font-semibold mb-4">Schedule</h1>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold">Schedule</h1>
+            <button
+              onClick={handleRefreshAll}
+              className="btn btn-ghost text-sm"
+            >
+              Refresh
+            </button>
+          </div>
           <div className="rounded-xl border bg-white p-3 md:p-4 shadow-sm">
             <AdminCalendar
-              onEventClick={(event: any) =>
-                setConfirmModal({ type: "deposit", booking: event.extendedProps })
-              }
+              refreshKey={calendarRefreshKey}
+              onEventClick={handleEventClick}
             />
           </div>
 

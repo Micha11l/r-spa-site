@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   // ========================
   const { data, error } = await supabase
     .from("class_signups")
-    .select("user_id,start_time,end_time")
+    .select("user_id,email,start_time,end_time")
     .eq("class_type", class_type)
     .eq("class_date", class_date);
 
@@ -34,9 +34,13 @@ export async function GET(req: Request) {
   // ② 汇总计数
   // ========================
   const counts: Record<string, number> = {};
+  const toKey = (value: string | null | undefined) =>
+    value ? value.slice(0, 5) : null;
+
   for (const r of data || []) {
-    const start = (r.start_time as string)?.slice(0, 5);
-    const end = (r.end_time as string)?.slice(0, 5);
+    const start = toKey(r.start_time as string | null | undefined);
+    const end = toKey(r.end_time as string | null | undefined);
+    if (!start || !end) continue;
     const key = `${start}-${end}`;
     counts[key] = (counts[key] || 0) + 1;
   }
@@ -60,13 +64,26 @@ export async function GET(req: Request) {
     ).then((r) => r.json().then((data) => ({ data })));
 
     const uid = userRes?.id;
-    if (uid) {
+    const email =
+      typeof userRes?.email === "string"
+        ? userRes.email.trim().toLowerCase()
+        : undefined;
+
+    if (uid || email) {
       mine = (data || [])
-        .filter((r) => r.user_id === uid)
-        .map(
-          (r) =>
-            `${(r.start_time as string)?.slice(0, 5)}-${(r.end_time as string)?.slice(0, 5)}`
-        );
+        .filter((r) => {
+          const rowEmail =
+            typeof r.email === "string"
+              ? (r.email as string).trim().toLowerCase()
+              : undefined;
+          return (uid && r.user_id === uid) || (email && rowEmail === email);
+        })
+        .map((r) => {
+          const start = toKey(r.start_time as string | null | undefined);
+          const end = toKey(r.end_time as string | null | undefined);
+          return start && end ? `${start}-${end}` : "";
+        })
+        .filter(Boolean);
     }
   }
 

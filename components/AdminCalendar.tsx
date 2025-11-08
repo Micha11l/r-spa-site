@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -24,12 +24,29 @@ type BookingEvent = {
 
 type Props = {
   onEventClick?: (event: any) => void;
+  refreshKey?: number;
 };
 
-export default function AdminCalendar({ onEventClick }: Props) {
+export default function AdminCalendar({ onEventClick, refreshKey }: Props) {
   const [events, setEvents] = useState<BookingEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  const loadBookings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/bookings", { cache: "no-store" });
+      const data = await res.json();
+
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error(data?.error || "Failed to load events");
+      }
+
+      setEvents(data);
+    } catch (err: any) {
+      console.error("[AdminCalendar] load error", err);
+      toast.error(err?.message || "Failed to load events");
+    }
+  }, []);
 
   // ✅ 监听窗口宽度
   useEffect(() => {
@@ -41,17 +58,8 @@ export default function AdminCalendar({ onEventClick }: Props) {
 
   // ✅ 获取数据
   useEffect(() => {
-    async function loadBookings() {
-      try {
-        const res = await fetch("/api/admin/bookings");
-        const data = await res.json();
-        setEvents(data || []);
-      } catch {
-        toast.error("Failed to load events");
-      }
-    }
     loadBookings();
-  }, []);
+  }, [loadBookings, refreshKey]);
 
   // ✅ 格式化时间
   function formatTimeRange(start: string, end: string) {
