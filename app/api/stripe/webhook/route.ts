@@ -152,15 +152,13 @@ export async function POST(req: NextRequest) {
         // 生成 PDF
         let pdfBuffer: Buffer;
         try {
-          const buf = await renderGiftPdfBuffer({
+          pdfBuffer = await renderGiftPdfBuffer({
             value: Math.round(amountNum), // 传递数字，不是字符串
             code,
             recipient: recipient_name || null,
             sender: sender_name || null,
             message: message || null,
           });
-          // @react-pdf/renderer 的 toBuffer() 返回 Buffer，但类型定义可能不准确
-          pdfBuffer = buf as any as Buffer;
         } catch (pdfErr) {
           console.error("PDF generation error:", pdfErr);
           return new Response(`PDF generation failed: ${pdfErr}`, { status: 500 });

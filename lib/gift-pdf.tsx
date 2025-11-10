@@ -36,37 +36,18 @@ export function GiftCardPdf(props: GiftPdfProps) {
   );
 }
 
-export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<ArrayBuffer> {
+export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<Buffer> {
   const instance = pdf(<GiftCardPdf {...p} />);
-  
+
   try {
-    const blob = await instance.toBlob();
-    const arrayBuffer = await blob.arrayBuffer();
-    
-    // 2. 直接返回 ArrayBuffer
-    return arrayBuffer;
+    // 在 Node.js 环境中使用 toBuffer()
+    const result = await instance.toBuffer();
+
+    // toBuffer() 返回的是 Node.js Buffer，直接返回
+    return result as Buffer;
 
   } catch (err) {
-    console.error("Error using toBlob, trying toBuffer:", err);
-    
-    // 3. (推荐) 修复备用逻辑
-    try {
-      const result = await instance.toBuffer();
-      
-      // 确保返回 ArrayBuffer
-      if (result instanceof ArrayBuffer) {
-        return result;
-      }
-      if (result instanceof Uint8Array) {
-        // 转换 Uint8Array (包括 Node.js Buffer) 为 ArrayBuffer
-        return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength);
-      }
-      
-      throw new Error("toBuffer did not return a valid buffer type");
-
-    } catch (bufferErr) {
-      console.error("Error using toBuffer:", bufferErr);
-      throw new Error("Failed to generate PDF buffer");
-    }
+    console.error("Error generating PDF:", err);
+    throw new Error("Failed to generate PDF buffer");
   }
 }
