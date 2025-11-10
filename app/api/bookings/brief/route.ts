@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import tz from "dayjs/plugin/timezone";
+
 dayjs.extend(utc);
+dayjs.extend(tz);
+
+const TZ = process.env.TIMEZONE || "America/Toronto";
 
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
@@ -23,8 +28,8 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ...data,
-    start_ts_fmt: data.start_at
-      ? dayjs.utc(data.start_at).local().format("MMM D, YYYY h:mm A")
+    start_at_fmt: data.start_at
+      ? dayjs.utc(data.start_at).tz(TZ).format("MMM D, YYYY h:mm A")
       : "",
   });
 }

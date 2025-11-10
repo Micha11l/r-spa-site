@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   const { data: bk, error: e1 } = await supabase
     .from("bookings")
-    .select("id, status, start_ts, payment_intent_id, deposit_cents")
+    .select("id, status, start_at, payment_intent_id, deposit_cents")
     .eq("id", booking_id)
     .maybeSingle();
   if (e1 || !bk) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   // 已付定金：计算退款金额
-  const start = dayjs(bk.start_ts);
+  const start = dayjs(bk.start_at);
   const now = dayjs();
   const diffH = start.diff(now, "hour"); // 距离开始还有多少小时
 

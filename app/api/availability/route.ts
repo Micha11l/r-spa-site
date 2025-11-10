@@ -15,13 +15,13 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
-    .select("start_ts, end_ts, status")
-    .gte("start_ts", dayStart)
-    .lte("end_ts", dayEnd);
+    .select("start_at, end_at, status")
+    .gte("start_at", dayStart)
+    .lte("end_at", dayEnd);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({
-    busy: (data || []).map((r) => ({ start: r.start_ts, end: r.end_ts })),
+    busy: (data || []).map((r) => ({ start: r.start_at, end: r.end_at })),
   });
 }

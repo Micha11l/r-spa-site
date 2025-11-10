@@ -26,11 +26,31 @@ export async function GET(req: NextRequest) {
     const toParam = searchParams.get("to");
     const statusParam = searchParams.get("status");
 
+    // 🔎 把金额/定金相关列一起查出来
     let query = supabaseAdmin
       .from("bookings")
-      .select(
-        "id, service_name, start_at, end_at, status, customer_name, customer_phone, customer_email, notes"
-      );
+      .select(`
+        id,
+        service_name,
+        start_at,
+        end_at,
+        status,
+        customer_name,
+        customer_phone,
+        customer_email,
+        notes,
+        price_cents,
+        deposit_cents,
+        payment_intent_id,
+        deposit_paid,
+        deposit_paid_at,
+        refund_cents,
+        refund_status,
+        cancellation_reason,
+        created_at,
+        completed_at,
+        refund_at
+      `);
 
     if (statusParam) {
       query = query.eq("status", statusParam);
@@ -43,22 +63,44 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query.order("start_at", { ascending: true });
     if (error) throw error;
 
+    // FullCalendar 需要标准键（id/title/start/end），其它字段可直接放在根上，
+    // 它们会自动出现在 event.extendedProps 里
     const events = (data ?? []).map((r) => ({
       id: r.id,
-      service_name: r.service_name,
       title: `${r.service_name}${r.status === "cancelled" ? " (cancelled)" : ""}`,
       start: r.start_at,
       end: r.end_at,
+
+      // 额外信息（会进入 extendedProps）
+      service_name: r.service_name,
       status: r.status,
       name: r.customer_name,
       email: r.customer_email,
       phone: r.customer_phone,
       notes: r.notes ?? "",
+
+      // 💰 金额/定金/退款相关（0 也保留）
+      price_cents: r.price_cents,
+      deposit_cents: r.deposit_cents,
+      payment_intent_id: r.payment_intent_id,
+      deposit_paid: r.deposit_paid,
+      deposit_paid_at: r.deposit_paid_at,
+      refund_cents: r.refund_cents,
+      refund_status: r.refund_status,
+
+      // 其它可选审计信息
+      cancellation_reason: r.cancellation_reason,
+      created_at: r.created_at,
+      completed_at: r.completed_at,
+      refund_at: r.refund_at,
     }));
 
     return NextResponse.json(events, { status: 200 });
   } catch (e: any) {
     console.error("[admin/bookings] error:", e);
-    return NextResponse.json({ error: e.message || "server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "server error" },
+      { status: 500 }
+    );
   }
 }

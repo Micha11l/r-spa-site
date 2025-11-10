@@ -1,7 +1,5 @@
-// app/admin/layout.tsx
 import type { Metadata } from "next";
 import "../globals.css";
-import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "Admin | Rejuvenessence",
@@ -11,9 +9,11 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <section className="min-h-screen bg-zinc-50 text-zinc-900">
-      {children}
-      <Toaster position="top-right" />
-    </section>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
+      <main className="max-w-7xl mx-auto py-6 px-4">
+        {children}
+      </main>
+      {/* Toaster removed - now handled in root layout */}
+    </div>
   );
 }

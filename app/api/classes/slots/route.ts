@@ -1,74 +1,131 @@
-import { NextResponse } from "next/server";
+// /app/api/classes/slots/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const class_date = searchParams.get("date");
-  const class_type = searchParams.get("type");
+/**
+ * This endpoint returns:
+ * - slots: list of classes for the given date (+ signed_count computed from class_signups)
+ * - mine:  current user's non-withdrawn signups for the date (if an auth bearer token is provided)
+ *
+ * It is resilient to schemas with or without `class_id` in `class_signups`.
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
+    const type = searchParams.get("type"); // "stretching" | "yoga" | "pilates" | "all"
 
-  // 从请求头取 Authorization
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!class_date || !class_type) {
-    return NextResponse.json({ error: "Missing date or type" }, { status: 400 });
-  }
-
-  const supabase = supabaseAdmin;
-
-  // ========================
-  // ① 获取所有报名记录
-  // ========================
-  const { data, error } = await supabase
-    .from("class_signups")
-    .select("user_id,start_time,end_time")
-    .eq("class_type", class_type)
-    .eq("class_date", class_date);
-
-  if (error) {
-    console.error("[classes/slots]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // ========================
-  // ② 汇总计数
-  // ========================
-  const counts: Record<string, number> = {};
-  for (const r of data || []) {
-    const start = (r.start_time as string)?.slice(0, 5);
-    const end = (r.end_time as string)?.slice(0, 5);
-    const key = `${start}-${end}`;
-    counts[key] = (counts[key] || 0) + 1;
-  }
-
-  // ========================
-  // ③ 当前用户报名过的时间段
-  // ========================
-  let mine: string[] = [];
-
-  if (token) {
-    // 注意：supabaseAdmin 没有 auth.getUser(token)
-    // 因此要用 fetch 调用 Supabase Auth API 来解析 token
-    const { data: userRes } = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
-      }
-    ).then((r) => r.json().then((data) => ({ data })));
-
-    const uid = userRes?.id;
-    if (uid) {
-      mine = (data || [])
-        .filter((r) => r.user_id === uid)
-        .map(
-          (r) =>
-            `${(r.start_time as string)?.slice(0, 5)}-${(r.end_time as string)?.slice(0, 5)}`
-        );
+    if (!date) {
+      return NextResponse.json({ error: "Missing date" }, { status: 400 });
     }
-  }
 
-  return NextResponse.json({ counts, mine });
+    // 1) Fetch classes for the day (optionally filtered by type)
+    let q = supabaseAdmin
+      .from("classes")
+      .select("id,class_type,class_date,start_time,end_time,capacity,min_size,status,coach,room")
+      .eq("class_date", date)
+      .order("start_time", { ascending: true });
+
+    if (type && type !== "all") q = q.eq("class_type", type);
+
+    const { data: rows, error } = await q;
+    if (error) throw error;
+
+    // Helper: robustly count signed signups even if class_signups doesn't have class_id
+    async function countSignedForRow(r: {
+      id: string;
+      class_type: string;
+      class_date: string;
+      start_time: string;
+      end_time: string;
+    }): Promise<number> {
+      // First try by class_id (preferred)
+      try {
+        const { count, error: cErr } = await supabaseAdmin
+          .from("class_signups")
+          .select("id", { head: true, count: "exact" })
+          .eq("class_id", r.id)
+          .eq("status", "signed");
+
+        if (cErr) throw cErr;
+        return count ?? 0;
+      } catch (e: any) {
+        // Fallback: composite keys (works when class_id column does not exist)
+        const { count, error: fErr } = await supabaseAdmin
+          .from("class_signups")
+          .select("id", { head: true, count: "exact" })
+          .eq("class_type", r.class_type)
+          .eq("class_date", r.class_date)
+          .eq("start_time", r.start_time)
+          .eq("end_time", r.end_time)
+          .eq("status", "signed");
+
+        if (fErr) {
+          // As a last resort, don't crash the whole endpoint; log and return 0
+          console.error("[classes/slots] count fallback error:", fErr);
+          return 0;
+        }
+        return count ?? 0;
+      }
+    }
+
+    // 2) Compute per-class signed_count
+    const slots = await Promise.all(
+      (rows ?? []).map(async (r) => {
+        const signed_count = await countSignedForRow(r as any);
+        return {
+          ...r,
+          capacity: r.capacity ?? 5,
+          min_size: r.min_size ?? 1,
+          signed_count,
+        };
+      })
+    );
+
+    // 3) Mine (optional, if Authorization: Bearer &lt;access_token&gt; is provided)
+    const auth = req.headers.get("authorization") ?? "";
+    let mine: any[] = [];
+    if (auth.toLowerCase().startsWith("bearer ")) {
+      try {
+        const token = auth.replace(/^bearer\s+/i, "");
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+
+        if (user?.email) {
+          // Attempt select including class_id; if it fails (42703), retry without class_id
+          try {
+            const { data: mineRows, error: mErr } = await supabaseAdmin
+              .from("class_signups")
+              .select("id,class_id,class_type,class_date,start_time,end_time,status,created_at")
+              .eq("email", user.email)
+              .eq("class_date", date)
+              .neq("status", "withdrawn");
+
+            if (mErr) throw mErr;
+            mine = mineRows ?? [];
+          } catch (selErr: any) {
+            // Fallback without class_id column
+            const { data: mineRows2, error: mErr2 } = await supabaseAdmin
+              .from("class_signups")
+              .select("id,class_type,class_date,start_time,end_time,status,created_at")
+              .eq("email", user.email)
+              .eq("class_date", date)
+              .neq("status", "withdrawn");
+
+            if (mErr2) {
+              console.error("[classes/slots] mine fallback error:", mErr2);
+            }
+            mine = mineRows2 ?? [];
+          }
+        }
+      } catch (authErr) {
+        // Do not fail the endpoint because of auth parsing; just omit `mine`
+        console.error("[classes/slots] auth getUser error:", authErr);
+      }
+    }
+
+    return NextResponse.json({ slots, mine }, { status: 200 });
+  } catch (e: any) {
+    console.error("[classes/slots]", e);
+    return NextResponse.json({ error: e?.message ?? "server error" }, { status: 500 });
+  }
 }

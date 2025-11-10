@@ -1,15 +1,13 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import Script from "next/script";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Toaster } from "react-hot-toast";
+import "./globals.css";
+import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
 
 const SITE_NAME = "Rejuvenessence";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
 
-// ===== SEO Metadata =====
 export const metadata: Metadata = {
   title: {
     default: `${SITE_NAME} | Med, Spa & Wellness Studio`,
@@ -32,8 +30,11 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-// ===== Root Layout =====
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const ldJson = {
     "@context": "https://schema.org",
     "@type": "DaySpa",
@@ -72,7 +73,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* FullCalendar CSS */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.13/index.css"
@@ -88,10 +88,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
 
       <body className="bg-zinc-50 text-zinc-900">
-        <Navbar />
-        <main>{children}</main>
-        <Footer />
+        {/* ✅ Client-only wrapper to prevent hydration mismatch */}
+        <ClientLayoutWrapper>{children}</ClientLayoutWrapper>
+
+        {/* ✅ Toaster moved to root layout */}
         <Toaster position="top-right" />
+
         <Script id="ld-localbusiness" type="application/ld+json">
           {JSON.stringify(ldJson)}
         </Script>

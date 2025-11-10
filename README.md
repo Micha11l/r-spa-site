@@ -49,6 +49,23 @@ See `.env.example` and set:
 - **Sentry**: add `@sentry/nextjs`, run `npx @sentry/wizard -i nextjs`, and commit config.
 - **UptimeRobot/BetterStack**: monitor the site URL + `/api/book` POST health with a heartbeat (optionally add a GET `/api/health`).
 
+### Stripe Webhook Development
+
+For local development with Stripe webhooks:
+
+```bash
+# Install Stripe CLI if not already installed
+# https://stripe.com/docs/stripe-cli
+
+# Forward webhooks to local server (recommended: only listen to checkout.session.completed)
+stripe listen --forward-to http://localhost:3000/api/stripe/webhook --events checkout.session.completed
+
+# Copy the webhook signing secret and add to .env.local:
+# STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+**Note**: The webhook handler processes `checkout.session.completed` events. Other events (like `payment_intent.succeeded`) may also arrive, but are safely ignored due to idempotency protection using `stripe_session_id` and `payment_intent_id`.
+
 ### Security Notes
 - The API uses Supabase Service Role key server-side only (never expose in client). Vercel server environment is safe.
 - Add rate limiting (e.g., middleware + IP-based limits) and captcha for production.
