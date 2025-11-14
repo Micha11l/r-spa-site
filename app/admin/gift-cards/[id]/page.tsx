@@ -1,4 +1,4 @@
-// app/staff/gift-cards/[id]/page.tsx
+// app/admin/gift-cards/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -55,7 +55,7 @@ export default function GiftCardDetailPage() {
       setGiftCard(data);
     } catch (error: any) {
       toast.error(error.message || "Failed to load gift card");
-      router.push("/staff/gift-cards");
+      router.push("/admin");  // ✅ 改为 /admin
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function GiftCardDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-blue-600" />
           <p className="mt-4 text-slate-600">Loading gift card...</p>
@@ -80,45 +80,50 @@ export default function GiftCardDetailPage() {
   const canCancel = !["used", "cancelled", "expired"].includes(giftCard.status);
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
+    <div className="min-h-screen bg-slate-50 py-4 md:py-8 px-4">
       <div className="max-w-5xl mx-auto">
         
         {/* Back Button */}
         <button
-          onClick={() => router.push("/staff/gift-cards")}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          onClick={() => router.push("/admin")}  // ✅ 改为 /admin
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 md:mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          Back to Gift Cards
+          <span className="text-sm md:text-base">Back to Admin</span>
         </button>
 
-        {/* Header */}
-        <div className="bg-white rounded-xl p-6 mb-6 border border-slate-200">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-slate-900 font-mono">
+        {/* Header - 响应式优化 */}
+        <div className="bg-white rounded-xl p-4 md:p-6 mb-4 md:mb-6 border border-slate-200">
+          {/* 移动端：垂直布局，桌面端：水平布局 */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+            <div className="flex-1 min-w-0">
+              {/* 标题和徽章 - 移动端垂直堆叠 */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-xl md:text-2xl font-bold text-slate-900 font-mono break-all">
                   {giftCard.code}
                 </h1>
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusBadgeColor(giftCard.status)}`}>
-                  {getStatusLabel(giftCard.status)}
-                </span>
-                {giftCard.is_gift && (
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
-                    🎁 Gift
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2 md:px-3 py-1 text-xs md:text-sm font-medium rounded-full whitespace-nowrap ${getStatusBadgeColor(giftCard.status)}`}>
+                    {getStatusLabel(giftCard.status)}
                   </span>
-                )}
+                  {giftCard.is_gift && (
+                    <span className="px-2 md:px-3 py-1 text-xs md:text-sm font-medium rounded-full bg-purple-100 text-purple-800 whitespace-nowrap">
+                      🎁 Gift
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-slate-600">
+              <p className="text-sm md:text-base text-slate-600">
                 Purchased on {new Date(giftCard.created_at).toLocaleDateString()}
               </p>
             </div>
             
-            <div className="flex gap-2">
+            {/* 按钮 - 移动端全宽，桌面端保持原样 */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 w-full sm:w-auto">
               {canUse && (
                 <button
                   onClick={() => setShowUseModal(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm md:text-base"
                 >
                   <DollarSign className="w-4 h-4" />
                   Record Use
@@ -127,7 +132,7 @@ export default function GiftCardDetailPage() {
               {canCancel && (
                 <button
                   onClick={() => setShowCancelModal(true)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm md:text-base"
                 >
                   <XCircle className="w-4 h-4" />
                   Cancel Card
@@ -137,24 +142,24 @@ export default function GiftCardDetailPage() {
           </div>
 
           {/* Balance Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-700 mb-1">Original Amount</p>
-              <p className="text-2xl font-bold text-blue-900">
+              <p className="text-xs md:text-sm text-blue-700 mb-1">Original Amount</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-900">
                 {formatCentsToUSD(giftCard.amount)}
               </p>
             </div>
 
             <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <p className="text-sm text-green-700 mb-1">Remaining Balance</p>
-              <p className="text-2xl font-bold text-green-900">
+              <p className="text-xs md:text-sm text-green-700 mb-1">Remaining Balance</p>
+              <p className="text-xl md:text-2xl font-bold text-green-900">
                 {formatCentsToUSD(giftCard.remaining_amount)}
               </p>
             </div>
 
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-              <p className="text-sm text-slate-700 mb-1">Used</p>
-              <p className="text-2xl font-bold text-slate-900">
+              <p className="text-xs md:text-sm text-slate-700 mb-1">Used</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">
                 {formatCentsToUSD(giftCard.amount - giftCard.remaining_amount)}
               </p>
             </div>
@@ -162,11 +167,11 @@ export default function GiftCardDetailPage() {
         </div>
 
         {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
           
           {/* Purchase Info */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Purchase Information</h2>
+          <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200">
+            <h2 className="text-base md:text-lg font-semibold text-slate-900 mb-4">Purchase Information</h2>
             <div className="space-y-3">
               <InfoRow icon={<User />} label="Purchaser" value={giftCard.sender_name || "N/A"} />
               <InfoRow icon={<Mail />} label="Email" value={giftCard.sender_email || giftCard.purchased_by_email || "N/A"} />
@@ -178,15 +183,15 @@ export default function GiftCardDetailPage() {
 
           {/* Recipient Info (if gift) */}
           {giftCard.is_gift && (
-            <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-              <h2 className="text-lg font-semibold text-purple-900 mb-4">🎁 Gift Recipient</h2>
+            <div className="bg-purple-50 rounded-xl p-4 md:p-6 border border-purple-200">
+              <h2 className="text-base md:text-lg font-semibold text-purple-900 mb-4">🎁 Gift Recipient</h2>
               <div className="space-y-3">
                 <InfoRow icon={<User />} label="Recipient" value={giftCard.recipient_name || "N/A"} />
                 <InfoRow icon={<Mail />} label="Email" value={giftCard.recipient_email || "N/A"} />
                 {giftCard.message && (
                   <div className="pt-3 border-t border-purple-200">
                     <p className="text-sm text-purple-700 mb-1">Message:</p>
-                    <p className="text-sm text-purple-900 italic">"{giftCard.message}"</p>
+                    <p className="text-sm text-purple-900 italic break-words">"{giftCard.message}"</p>
                   </div>
                 )}
               </div>
@@ -195,8 +200,8 @@ export default function GiftCardDetailPage() {
 
           {/* Payment Info */}
           {!giftCard.is_gift && (
-            <div className="bg-white rounded-xl p-6 border border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Payment Information</h2>
+            <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200">
+              <h2 className="text-base md:text-lg font-semibold text-slate-900 mb-4">Payment Information</h2>
               <div className="space-y-3">
                 <InfoRow icon={<CreditCard />} label="Payment Method" value="Stripe" />
                 {giftCard.payment_intent_id && (
@@ -215,11 +220,11 @@ export default function GiftCardDetailPage() {
         </div>
 
         {/* Transaction History */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Transaction History</h2>
+        <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200">
+          <h2 className="text-base md:text-lg font-semibold text-slate-900 mb-4">Transaction History</h2>
           
           {!giftCard.transactions || giftCard.transactions.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">No transactions yet</p>
+            <p className="text-slate-500 text-center py-8 text-sm md:text-base">No transactions yet</p>
           ) : (
             <div className="space-y-3">
               {giftCard.transactions.map((tx) => (
@@ -261,12 +266,12 @@ export default function GiftCardDetailPage() {
 function InfoRow({ icon, label, value, mono = false }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5">
+      <div className="w-4 h-4 md:w-5 md:h-5 text-slate-400 flex-shrink-0 mt-0.5">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-600">{label}</p>
-        <p className={`text-sm font-medium text-slate-900 break-all ${mono ? 'font-mono text-xs' : ''}`}>
+        <p className="text-xs md:text-sm text-slate-600">{label}</p>
+        <p className={`text-xs md:text-sm font-medium text-slate-900 break-all ${mono ? 'font-mono text-xs' : ''}`}>
           {value}
         </p>
       </div>
@@ -280,37 +285,37 @@ function TransactionRow({ transaction }: { transaction: GiftCardTransaction }) {
   const isCancel = transaction.transaction_type === "cancel";
 
   return (
-    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+    <div className="flex flex-col sm:flex-row items-start gap-3 md:gap-4 p-3 md:p-4 bg-slate-50 rounded-lg border border-slate-200">
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
         isCredit ? "bg-green-100" : isCancel ? "bg-red-100" : "bg-blue-100"
       }`}>
         {isCredit ? "💰" : isCancel ? "❌" : <TrendingDown className="w-5 h-5 text-blue-600" />}
       </div>
       
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <p className="font-medium text-slate-900 capitalize">
+      <div className="flex-1 min-w-0 w-full">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm md:text-base font-medium text-slate-900 capitalize">
               {transaction.transaction_type}
               {transaction.service_name && ` - ${transaction.service_name}`}
             </p>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-xs md:text-sm text-slate-600 mt-1">
               {new Date(transaction.created_at).toLocaleString()}
             </p>
             {transaction.notes && (
-              <p className="text-sm text-slate-500 mt-1 italic">
+              <p className="text-xs md:text-sm text-slate-500 mt-1 italic break-words">
                 Note: {transaction.notes}
               </p>
             )}
           </div>
           
-          <div className="text-right flex-shrink-0">
-            <p className={`text-lg font-bold ${
+          <div className="text-left sm:text-right flex-shrink-0">
+            <p className={`text-base md:text-lg font-bold ${
               isCredit ? "text-green-600" : "text-red-600"
             }`}>
               {isCredit ? "+" : "-"}{formatCentsToUSD(transaction.amount_cents)}
             </p>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-xs md:text-sm text-slate-600 mt-1">
               Balance: {formatCentsToUSD(transaction.balance_after_cents)}
             </p>
           </div>
@@ -375,12 +380,12 @@ function UseGiftCardModal({ giftCard, onClose, onSuccess }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-slate-900 mb-4">Record Gift Card Use</h3>
+      <div className="bg-white rounded-xl max-w-md w-full p-4 md:p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-4">Record Gift Card Use</h3>
         
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-green-700 mb-1">Available Balance</p>
-          <p className="text-2xl font-bold text-green-900">
+          <p className="text-xs md:text-sm text-green-700 mb-1">Available Balance</p>
+          <p className="text-xl md:text-2xl font-bold text-green-900">
             {formatCentsToUSD(giftCard.remaining_amount)}
           </p>
         </div>
@@ -397,7 +402,7 @@ function UseGiftCardModal({ giftCard, onClose, onSuccess }: {
               max={giftCard.remaining_amount / 100}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               placeholder="0.00"
               required
             />
@@ -411,7 +416,7 @@ function UseGiftCardModal({ giftCard, onClose, onSuccess }: {
               type="text"
               value={serviceName}
               onChange={(e) => setServiceName(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               placeholder="e.g. Facial Treatment"
             />
           </div>
@@ -424,23 +429,23 @@ function UseGiftCardModal({ giftCard, onClose, onSuccess }: {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base"
               placeholder="Additional notes..."
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              className="w-full sm:flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm md:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={processing}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
             >
               {processing ? "Processing..." : "Record Use"}
             </button>
@@ -490,14 +495,14 @@ function CancelGiftCardModal({ giftCard, onClose, onSuccess }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6">
+      <div className="bg-white rounded-xl max-w-md w-full p-4 md:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-6 h-6 text-red-600" />
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Cancel Gift Card</h3>
-            <p className="text-sm text-slate-600 mt-1">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg md:text-xl font-bold text-slate-900">Cancel Gift Card</h3>
+            <p className="text-xs md:text-sm text-slate-600 mt-1">
               This action cannot be undone. The gift card will be marked as cancelled.
             </p>
           </div>
@@ -512,23 +517,23 @@ function CancelGiftCardModal({ giftCard, onClose, onSuccess }: {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none text-base"
               placeholder="Why is this gift card being cancelled?"
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              className="w-full sm:flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm md:text-base"
             >
               Keep Card
             </button>
             <button
               type="submit"
               disabled={processing}
-              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
             >
               {processing ? "Processing..." : "Cancel Card"}
             </button>
