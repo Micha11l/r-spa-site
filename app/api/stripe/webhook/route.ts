@@ -167,46 +167,61 @@ async function handleGiftCardPurchase(session: any) {
         continue;
       }
 
-      console.log(`[webhook] Gift card created: ${code}, isGift: ${isGift}`);
+      console.log(`[webhook] Gift card created: ${code}, isGift: ${isGift}, recipientEmail: ${recipientEmail}`);
 
-      // 5. Send email to recipient (either sender or actual recipient)
-      await sendGiftCardEmail({
-        code,
-        token,
-        amount: card.amount,
-        recipientEmail,
-        recipientName: isGift ? card.recipient_name : senderName,
-        senderName: isGift ? senderName : null,
-        message: isGift ? card.message : null,
-        isGift,
-        expiresAt: expiresAt.toISOString(),
-        purchasedAt: new Date().toISOString(),
-      });
-
-      console.log(`[webhook] Gift card email sent to ${recipientEmail}`);
-      
-      // 6. Track for confirmation email
+      // 6. Track for confirmation email FIRST (before email sending)
       createdCards.push({
         code,
         amount: card.amount,
         isGift,
-        recipientEmail: isGift ? card.recipient_email : senderEmail,
+        recipientEmail: recipientEmail, // Use the calculated recipientEmail
       });
+
+      // 5. Send email to recipient (either sender or actual recipient)
+      // Don't let email failure prevent card creation
+      try {
+        await sendGiftCardEmail({
+          code,
+          token,
+          amount: card.amount,
+          recipientEmail,
+          recipientName: isGift ? card.recipient_name : senderName,
+          senderName: isGift ? senderName : null,
+          message: isGift ? card.message : null,
+          isGift,
+          expiresAt: expiresAt.toISOString(),
+          purchasedAt: new Date().toISOString(),
+        });
+
+        console.log(`[webhook] Gift card email sent to ${recipientEmail}`);
+      } catch (emailError: any) {
+        console.error(`[webhook] Failed to send email for ${code}:`, emailError);
+        // Continue processing - card is still created
+      }
 
     } catch (cardError: any) {
       console.error(`[webhook] Error processing card:`, cardError);
+      // Continue with next card
     }
   }
 
   // 7. Send purchase confirmation to sender
-  await sendGiftCardPurchaseConfirmation({
-    senderEmail,
-    senderName,
-    totalAmount: cards.reduce((sum, c) => sum + c.amount, 0),
-    cards: createdCards,
-  });
+  console.log(`[webhook] Sending purchase confirmation. Created cards count: ${createdCards.length}`);
+  console.log(`[webhook] Created cards details:`, JSON.stringify(createdCards, null, 2));
 
-  console.log(`[webhook] Purchase confirmation sent to ${senderEmail}`);
+  try {
+    await sendGiftCardPurchaseConfirmation({
+      senderEmail,
+      senderName,
+      totalAmount: cards.reduce((sum, c) => sum + c.amount, 0),
+      cards: createdCards,
+    });
+
+    console.log(`[webhook] Purchase confirmation sent to ${senderEmail}`);
+  } catch (confirmError: any) {
+    console.error(`[webhook] Failed to send purchase confirmation:`, confirmError);
+    // Don't throw - cards are already created
+  }
 
   return NextResponse.json({ ok: true });
 }
