@@ -99,6 +99,12 @@ export default function HomePage() {
             Book now
           </Link>
           <Link
+            href="/giftcard/purchase"
+            className="inline-flex items-center rounded-xl bg-purple-600 px-5 py-3 text-white hover:opacity-90"
+          >
+            🎁 Gift Cards
+          </Link>
+          <Link
             href="/events"
             className="inline-flex items-center rounded-xl border border-black px-5 py-3 hover:bg-black/5"
           >

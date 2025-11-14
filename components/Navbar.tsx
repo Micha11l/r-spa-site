@@ -13,6 +13,7 @@ const nav = [
   { href: "/learn-more", label: "Therapies" }, // 如果你的路由是 /therapies 改这里
   { href: "/bistro", label: "Bistro" },
   { href: "/booking", label: "Booking" },
+  { href: "/giftcard/purchase", label: "Gift Cards" },
   { href: "/newsletter", label: "Newsletter" },
 ];
 
