@@ -4,9 +4,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Home, LogOut, GraduationCap, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarDays, Home, LogOut, GraduationCap, Calendar as CalendarIcon, CreditCard } from "lucide-react";
 import AdminCalendar from "@/components/AdminCalendar";
 import ClassesManagement from "@/components/ClassesManagement";
+import GiftCardsManagement from "@/components/GiftCardsManagement";
 import toast from "react-hot-toast";
 
 type Booking = {
@@ -20,7 +21,7 @@ type Booking = {
   status: string;
 };
 
-type TabType = "bookings" | "classes";
+type TabType = "bookings" | "classes" | "giftcards";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("bookings");
@@ -143,6 +144,7 @@ export default function AdminPage() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 text-sm">
+          
           <button
             onClick={() => setActiveTab("bookings")}
             className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
@@ -154,7 +156,17 @@ export default function AdminPage() {
             <CalendarDays className="h-4 w-4" />
             Bookings
           </button>
-          
+          <button
+            onClick={() => setActiveTab("giftcards")}
+            className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
+              activeTab === "giftcards"
+                ? "bg-purple-100 text-purple-700 font-medium"
+                : "hover:bg-zinc-100"
+            }`}
+          >
+            <CreditCard className="h-4 w-4" />
+            Gift Cards
+          </button>
           <button
             onClick={() => setActiveTab("classes")}
             className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
@@ -234,6 +246,18 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => {
+                    setActiveTab("giftcards");
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
+                    activeTab === "giftcards" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
+                  }`}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Gift Cards
+                </button>
+                <button
+                  onClick={() => {
                     setActiveTab("classes");
                     setOpen(false);
                   }}
@@ -262,6 +286,7 @@ export default function AdminPage() {
             </motion.aside>
           </motion.div>
         )}
+        
       </AnimatePresence>
 
       {/* Main Content */}
@@ -288,6 +313,16 @@ export default function AdminPage() {
               }`}
             >
               Classes
+            </button>
+            <button
+              onClick={() => setActiveTab("giftcards")}
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "giftcards"
+                  ? "bg-purple-600 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              Gift Cards
             </button>
           </div>
 
@@ -364,6 +399,26 @@ export default function AdminPage() {
                 </p>
               </div>
               <ClassesManagement />
+            </motion.div>
+          )}
+
+          {/* Gift Cards Tab */}
+          {activeTab === "giftcards" && (
+            <motion.div
+              key="giftcards"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div>
+                <h1 className="text-2xl font-semibold">Gift Cards Management</h1>
+                <p className="text-sm text-zinc-600 mt-1">
+                  View and manage all gift cards
+                </p>
+              </div>
+              <GiftCardsManagement />
             </motion.div>
           )}
         </div>
