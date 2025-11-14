@@ -3,7 +3,7 @@ import { NextResponse, NextRequest } from "next/server";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 dayjs.extend(utc);
 dayjs.extend(tz);

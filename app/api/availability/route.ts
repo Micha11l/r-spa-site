@@ -1,7 +1,7 @@
 // app/api/availability/route.ts
 import { NextResponse } from "next/server";
 import dayjs from "dayjs";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 

@@ -6,30 +6,61 @@
 :root {
   color-scheme: light;
 }
+
 html, body {
-  @apply bg-paper text-ink;
+  background-color: theme('colors.paper');
+  color: theme('colors.ink');
   font-feature-settings: "ss01";
 }
-a { @apply underline decoration-ink/20 underline-offset-4 hover:decoration-ink; }
-.container { @apply max-w-6xl mx-auto px-4; }
+
+a { 
+  @apply underline decoration-ink/20 underline-offset-4 hover:decoration-ink; 
+}
+
+.container { 
+  @apply max-w-6xl mx-auto px-4; 
+}
+
 .btn {
   @apply inline-flex items-center justify-center rounded-none border border-ink px-5 py-3 text-sm tracking-wide uppercase;
 }
+
 .btn-primary {
   @apply bg-ink text-paper hover:bg-paper hover:text-ink transition;
 }
+
 .section {
   @apply py-16;
 }
-.h1 { @apply text-4xl md:text-5xl font-semibold tracking-tight; }
-.h2 { @apply text-2xl md:text-3xl font-semibold; }
-.h3 { @apply text-xl md:text-2xl font-medium; }
-.card { @apply border border-ink/10 p-6 bg-paper; }
+
+.h1 { 
+  @apply text-4xl md:text-5xl font-semibold tracking-tight; 
+}
+
+.h2 { 
+  @apply text-2xl md:text-3xl font-semibold; 
+}
+
+.h3 { 
+  @apply text-xl md:text-2xl font-medium; 
+}
+
+.card { 
+  @apply border border-ink/10 p-6 bg-paper; 
+}
+
 input, select, textarea {
   @apply w-full border border-ink/20 bg-paper px-3 py-2 focus:outline-none focus:border-ink;
 }
-label { @apply text-sm uppercase tracking-wider text-ash; }
-small { @apply text-ash; }
+
+label { 
+  @apply text-sm uppercase tracking-wider text-ash; 
+}
+
+small { 
+  @apply text-ash; 
+}
+
 /* ==== FullCalendar Mobile Optimization ==== */
 @media (max-width: 640px) {
   .fc .fc-toolbar {
@@ -58,6 +89,7 @@ small { @apply text-ash; }
     background-color: rgba(254, 240, 138, 0.3) !important;
   }
 }
+
 /* 手机端优化日历字体 */
 @media (max-width: 768px) {
   .fc .fc-toolbar-title {
@@ -71,5 +103,23 @@ small { @apply text-ash; }
   .fc .fc-list-event-time {
     font-weight: 500;
     color: #2563eb; /* Tailwind blue-600 */
+  }
+}
+
+/* 自定义动画类 */
+@layer utilities {
+  .animate-fade-in-down {
+    animation: fadeInDown 0.6s ease-out;
+  }
+  
+  @keyframes fadeInDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

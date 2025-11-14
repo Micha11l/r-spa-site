@@ -1,6 +1,6 @@
 "use client";
 
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -24,7 +24,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null); setMsg(null); setLoading(true);
-    const sb = supabaseBrowser(); // ✅ 调用函数，得到 SupabaseClient
+    const sb = createClient(); // ✅ 调用函数，得到 SupabaseClient
     try {
       if (mode === "sign-in") {
         const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
@@ -57,7 +57,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
   }, [email, pwd, mode, next, router]);
 
   const sendReset = useCallback(async () => {
-    const sb = supabaseBrowser(); // ✅ 这里也要调用
+    const sb = createClient(); // ✅ 这里也要调用
     try {
       setErr(null); setMsg(null); setLoading(true);
       await sb.auth.resetPasswordForEmail(email, {
