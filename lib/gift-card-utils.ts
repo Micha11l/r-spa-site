@@ -120,11 +120,11 @@ export function generateRedeemUrl(token: string, baseUrl: string = "https://reju
 
 /**
  * Validate gift card amount
- * Minimum $150, maximum $10,000
+ * Minimum $1, maximum $10,000
  */
 export function validateGiftCardAmount(amount: number): { valid: boolean; error?: string } {
-  if (amount < 150) {
-    return { valid: false, error: "Minimum gift card amount is $150" };
+  if (amount < 1) {
+    return { valid: false, error: "Minimum gift card amount is $1" };
   }
   if (amount > 10000) {
     return { valid: false, error: "Maximum gift card amount is $10,000" };

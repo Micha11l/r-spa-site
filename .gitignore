@@ -13,3 +13,4 @@ node_modules
 # Sensitive deployment files
 STRIPE_PRODUCTION_KEYS.txt
 VERCEL_ENV_QUICK_SETUP.txt
+VERCEL_ENV_CORRECTED.txt

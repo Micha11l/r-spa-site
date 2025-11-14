@@ -19,7 +19,7 @@ export default function PurchaseGiftCardPage() {
   const router = useRouter();
   const [cards, setCards] = useState<GiftCardForm[]>([
     {
-      amount: 150,
+      amount: 1,
       recipient_email: "",
       recipient_name: "",
       message: "",
@@ -35,7 +35,7 @@ export default function PurchaseGiftCardPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Predefined amounts
-  const presetAmounts = [150, 200, 300, 500, 1000];
+  const presetAmounts = [1, 150, 200, 300, 500, 1000];
 
   // Add a new card
   const addCard = () => {
@@ -46,7 +46,7 @@ export default function PurchaseGiftCardPage() {
     setCards([
       ...cards,
       {
-        amount: 150,
+        amount: 1,
         recipient_email: "",
         recipient_name: "",
         message: "",
@@ -95,12 +95,12 @@ export default function PurchaseGiftCardPage() {
     // Validate each card
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
-      
-      if (card.amount < 150) {
-        toast.error(`Card ${i + 1}: Minimum amount is $150`);
+
+      if (card.amount < 1) {
+        toast.error(`Card ${i + 1}: Minimum amount is $1`);
         return false;
       }
-      
+
       if (card.amount > 10000) {
         toast.error(`Card ${i + 1}: Maximum amount is $10,000`);
         return false;
@@ -284,11 +284,11 @@ export default function PurchaseGiftCardPage() {
                   <input
                     type="number"
                     value={card.amount}
-                    onChange={(e) => updateCard(index, "amount", parseInt(e.target.value) || 150)}
-                    min={150}
+                    onChange={(e) => updateCard(index, "amount", parseInt(e.target.value) || 1)}
+                    min={1}
                     max={10000}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Custom amount (min $150)"
+                    placeholder="Custom amount (min $1)"
                   />
                 </div>
 
