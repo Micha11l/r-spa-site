@@ -3,7 +3,13 @@ node_modules
 .DS_Store
 .env*
 !.env.example
+!.env.production.example
 .env.local
+.env.local.backup
 # TypeScript
 *.tsbuildinfo
 .vercel
+
+# Sensitive deployment files
+STRIPE_PRODUCTION_KEYS.txt
+VERCEL_ENV_QUICK_SETUP.txt
