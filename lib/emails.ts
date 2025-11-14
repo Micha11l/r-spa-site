@@ -322,13 +322,16 @@ export async function sendGiftCardEmail(params: {
     // Continue without PDF - email is more important
   }
 
-  // Send via Resend (to customer)
+  // Send via Zoho SMTP (more reliable delivery)
   try {
-    await resend.emails.send({
-      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+    const transporter = buildTransport();
+
+    await transporter.sendMail({
+      from: FROM_ADDR,
       to: recipientEmail,
       subject,
       html,
+      replyTo: process.env.ZOHO_SMTP_USER,
       attachments: pdfBuffer
         ? [
             {
@@ -337,6 +340,10 @@ export async function sendGiftCardEmail(params: {
             },
           ]
         : undefined,
+      envelope: {
+        from: process.env.ZOHO_SMTP_USER!,
+        to: [recipientEmail],
+      },
     });
 
     console.log(`[email] Gift card sent to ${recipientEmail}${pdfBuffer ? ' with PDF' : ' (no PDF)'}`);
@@ -377,13 +384,21 @@ export async function sendGiftCardPurchaseConfirmation(params: {
     }
   );
 
-  // Send via Resend (to buyer)
+  // Send via Zoho SMTP (more reliable delivery)
+  const transporter = buildTransport();
+
+  // Send to buyer
   try {
-    await resend.emails.send({
-      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+    await transporter.sendMail({
+      from: FROM_ADDR,
       to: senderEmail,
       subject,
       html,
+      replyTo: process.env.ZOHO_SMTP_USER,
+      envelope: {
+        from: process.env.ZOHO_SMTP_USER!,
+        to: [senderEmail],
+      },
     });
 
     console.log(`[email] Purchase confirmation sent to ${senderEmail}`);
@@ -394,7 +409,6 @@ export async function sendGiftCardPurchaseConfirmation(params: {
 
   // Also notify owner via Zoho
   try {
-    const transporter = buildTransport();
     const owner = process.env.RESEND_OWNER_EMAIL!;
 
     const giftsCount = cards.filter(c => c.isGift).length;
@@ -410,7 +424,7 @@ export async function sendGiftCardPurchaseConfirmation(params: {
       `As gifts:     ${giftsCount}`,
       ``,
       `Details:`,
-      ...cards.map((card, i) => 
+      ...cards.map((card, i) =>
         `${i + 1}. ${card.code} - $${card.amount} - ${card.isGift ? `Gift to ${card.recipientEmail}` : 'For buyer'}`
       ),
       ``,

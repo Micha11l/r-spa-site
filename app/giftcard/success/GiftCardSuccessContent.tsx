@@ -21,36 +21,59 @@ export default function GiftCardSuccessPage() {
     const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [totalAmount, setTotalAmount] = useState(0);
-  
+    const [retryCount, setRetryCount] = useState(0);
+
     useEffect(() => {
       if (!sessionId) {
         setError("No session ID found");
         setLoading(false);
         return;
       }
-  
+
       // Fetch gift cards for this session
       fetchGiftCards();
     }, [sessionId]);
-  
-    async function fetchGiftCards() {
+
+    async function fetchGiftCards(currentRetryCount: number = 0) {
       try {
         const response = await fetch(`/api/giftcard/session?session_id=${sessionId}`);
         const data = await response.json();
-  
+
         if (!response.ok) {
           throw new Error(data.error || "Failed to fetch gift cards");
         }
-  
+
         console.log("Gift cards data:", data);
-  
+
+        // If no gift cards found and we haven't retried too many times
+        if ((!data.giftCards || data.giftCards.length === 0) && currentRetryCount < 10) {
+          console.log(`No gift cards found yet, retrying in 2 seconds... (attempt ${currentRetryCount + 1}/10)`);
+          setRetryCount(currentRetryCount + 1);
+
+          // Retry after 2 seconds
+          setTimeout(() => {
+            fetchGiftCards(currentRetryCount + 1);
+          }, 2000);
+          return;
+        }
+
         setGiftCards(data.giftCards || []);
         setTotalAmount(data.total || 0);
+        setLoading(false);
       } catch (err: any) {
         console.error("Error fetching gift cards:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+
+        // Retry on error if we haven't exceeded retry limit
+        if (currentRetryCount < 10) {
+          console.log(`Error fetching gift cards, retrying... (attempt ${currentRetryCount + 1}/10)`);
+          setRetryCount(currentRetryCount + 1);
+          setTimeout(() => {
+            fetchGiftCards(currentRetryCount + 1);
+          }, 2000);
+        } else {
+          setError(err.message);
+          setLoading(false);
+        }
       }
     }
   
@@ -77,6 +100,11 @@ export default function GiftCardSuccessPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading your gift cards...</p>
+            {retryCount > 0 && (
+              <p className="text-sm text-gray-500 mt-2">
+                Waiting for payment confirmation... ({retryCount}/10)
+              </p>
+            )}
           </div>
         </div>
       );
