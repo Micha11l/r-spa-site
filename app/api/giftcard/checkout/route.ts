@@ -10,6 +10,7 @@ import {
 } from "@/lib/gift-card-utils";
 
 export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
 
 type GiftCardRequest = {
   amount: number;

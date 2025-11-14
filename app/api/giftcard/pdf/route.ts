@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { renderGiftPdfBuffer } from "@/lib/gift-pdf";
 
 export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const code = new URL(req.url).searchParams.get("code")?.toUpperCase();
@@ -11,23 +12,31 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from("gift_cards")
-    .select("code,amount,remaining_amount,recipient_name,sender_name,message")
+    .select("code,amount,remaining_amount,recipient_name,sender_name,message,is_gift,expires_at,purchased_at,created_at")
     .eq("code", code)
     .maybeSingle();
 
   if (error || !data) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   try {
-    // ✅ renderGiftPdfBuffer 现在返回 Uint8Array
+    // Generate PDF buffer with all required fields
     const pdfBytes = await renderGiftPdfBuffer({
       code: data.code,
       value: Math.round((data.amount ?? 0) / 100),
       recipient: data.recipient_name ?? null,
       sender: data.sender_name ?? null,
       message: data.message ?? null,
+      isGift: data.is_gift ?? false,
+      expiresAt: data.expires_at ?? null,
+      purchasedAt: data.purchased_at ?? data.created_at ?? null,
     });
 
-    // ✅ Uint8Array 可以直接传给 NextResponse（类型兼容）
+    // Validate PDF buffer
+    if (!pdfBytes || !pdfBytes.length) {
+      throw new Error("PDF generation returned empty buffer");
+    }
+
+    // Return PDF response
     return new NextResponse(pdfBytes, {
       status: 200,
       headers: {

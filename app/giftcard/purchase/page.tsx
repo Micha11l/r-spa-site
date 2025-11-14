@@ -146,11 +146,22 @@ export default function PurchaseGiftCardPage() {
         }),
       });
 
-      const data = await response.json();
-
+      // Check if response is ok before parsing
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout");
+        // Try to parse JSON error, fallback to text if it fails
+        let errorMessage = "Failed to create checkout";
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          const text = await response.text();
+          console.error("Non-JSON response:", text);
+          errorMessage = `Server error (${response.status}). Please try again.`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       // Redirect to Stripe Checkout
       if (data.url) {
