@@ -266,9 +266,17 @@ export default function AccountPage() {
       <div className="max-w-4xl mx-auto space-y-8">
          {/* ⭐ 新添加 - Wallet Section */}
          <section>
-          <h2 className="text-xl font-light text-slate-900 mb-4">
-            Wallet
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-light text-slate-900">
+              Wallet
+            </h2>
+            <a
+              href="/giftcard/purchase"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              🎁 Buy Gift Card
+            </a>
+          </div>
           <WalletCard />
         </section>
       
