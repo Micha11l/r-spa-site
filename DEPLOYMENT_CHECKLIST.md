@@ -1,440 +1,731 @@
-# 🚀 Vercel 部署前检查清单
+# 🚀 Vercel 生产部署检查清单
 
-## ✅ 必须完成的任务
+## 📋 部署前必读
 
-### 1. 环境变量配置
-
-#### 🔴 立即修复（关键问题）
-
-**问题：环境变量重复定义**
-- `NEXT_PUBLIC_SITE_URL` 在 `.env.local` 中定义了两次
-- `RESEND_OWNER_EMAIL` 有冲突的值
-
-**解决方案：**
-```bash
-# 清理 .env.local，确保每个变量只定义一次
-# 生产环境应该使用 https://rejuvenessence.org
-NEXT_PUBLIC_SITE_URL=https://rejuvenessence.org
-SITE_URL=https://rejuvenessence.org
-RESEND_OWNER_EMAIL=booking@nesses.ca
-```
-
-#### 📋 Vercel 环境变量设置步骤
-
-1. 登录 Vercel Dashboard
-2. 进入你的项目 → Settings → Environment Variables
-3. 添加以下环境变量（参考 `.env.production.example`）：
-
-**必需的环境变量：**
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `STRIPE_SECRET_KEY` ⚠️ 使用生产密钥 `sk_live_xxx`
-- `STRIPE_WEBHOOK_SECRET` ⚠️ 需要在 Stripe 创建新的 webhook
-- `ZOHO_SMTP_USER`
-- `ZOHO_SMTP_PASS`
-- `ADMIN_PASSCODE` ⚠️ 修改为强密码
-- `ADMIN_ENTRY_TOKEN` ⚠️ 使用长随机字符串
-- `RESEND_API_KEY`
-- `NEXT_PUBLIC_SITE_URL=https://rejuvenessence.org`
+**预计时间：** 30-45 分钟
+**技术栈：** Next.js 14 + Supabase + Stripe + Vercel
+**域名：** https://rejuvenessence.org
 
 ---
 
-### 2. Stripe 配置
+## ✅ 第一步：环境变量配置
 
-#### 🔴 关键：切换到生产模式
+### 1.1 复制环境变量模板
 
-**当前状态：使用测试密钥** ⚠️
 ```bash
-STRIPE_SECRET_KEY=sk_test_51SPJ2xGV3uQ0GRgE...  # ❌ 测试密钥
+# 查看生产环境需要的所有变量
+cat .env.production.example
 ```
 
-**部署前必须：**
+### 1.2 在 Vercel Dashboard 配置
 
-1. **获取生产密钥**
-   - 登录 Stripe Dashboard
-   - 切换到 "Live mode"（右上角）
-   - 进入 Developers → API keys
-   - 复制 "Secret key" (sk_live_xxx)
-   - 复制 "Publishable key" (pk_live_xxx)
+1. 登录 https://vercel.com
+2. 进入项目 → **Settings** → **Environment Variables**
+3. 逐个添加以下变量（参考 `.env.production.example`）
 
-2. **配置 Webhook（重要）**
-   - 进入 Stripe Dashboard → Developers → Webhooks
-   - 点击 "Add endpoint"
-   - 设置 URL: `https://rejuvenessence.org/api/stripe/webhook`
-   - 选择事件: `checkout.session.completed`
-   - 复制 "Signing secret" (whsec_xxx)
-   - 在 Vercel 设置 `STRIPE_WEBHOOK_SECRET`
+#### 🔴 必需变量（缺一不可）
 
-3. **激活 Stripe 账户**
-   - 完成 Stripe 账户激活流程
-   - 添加银行账户信息（用于接收付款）
-   - 验证身份信息
+| 变量名 | 说明 | 示例值 |
+|--------|------|--------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL | `https://xxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名密钥 | `eyJhbGciOiJIUzI1NiIs...` |
+| `SUPABASE_SERVICE_ROLE` | Supabase 服务密钥 | `eyJhbGciOiJIUzI1NiIs...` |
+| `STRIPE_SECRET_KEY` | Stripe 生产密钥 | `sk_live_xxxxxxxxx` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 签名 | `whsec_xxxxxxxxx` |
+| `RESEND_API_KEY` | Resend 邮件服务密钥 | `re_xxxxxxxxx` |
+| `ADMIN_PASSCODE` | 管理员登录密码 | **强密码！** |
+| `ADMIN_ENTRY_TOKEN` | 管理员 URL token | **64位随机字符串** |
+| `NEXT_PUBLIC_SITE_URL` | 网站 URL | `https://rejuvenessence.org` |
+
+#### ⚠️ 安全建议
+
+```bash
+# 生成强随机 token
+openssl rand -hex 32
+
+# 生成强密码（在终端运行）
+pwgen -s 20 1
+# 或手动创建：至少12位，包含大小写、数字、特殊字符
+```
+
+**强密码示例：**
+```
+Admin!2024$Secure#Pwd  ✅
+010519                 ❌ 太简单！
+```
+
+**强 Token 示例：**
+```
+a7f3e8d9c2b1a6f4e7d8c3b2a9f6e5d4c8b7a3f2e1d9c6b5a4f3e2d1c9b8a7f6  ✅
+very-long-secret-abc123                                           ❌ 不够随机！
+```
 
 ---
 
-### 3. Supabase 安全配置
+## ✅ 第二步：Stripe 生产环境配置
 
-#### 🔴 关键：检查 RLS 策略
+### 2.1 切换到 Live Mode
 
-**需要验证的表：**
+1. 登录 https://dashboard.stripe.com
+2. 右上角切换到 **"Live mode"**（不是 Test mode）
+3. 进入 **Developers** → **API keys**
+4. 复制：
+   - **Secret key** (sk_live_xxx) → `STRIPE_SECRET_KEY`
+   - **Publishable key** (pk_live_xxx) → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 
-1. **bookings 表** - 预约数据
-   - ✅ 用户只能查看自己的预约
-   - ✅ 管理员可以查看所有预约
-   - ✅ 防止未授权修改
+### 2.2 配置 Webhook（关键步骤）
 
-2. **gift_cards 表** - 礼品卡数据
-   - ✅ 用户只能使用自己购买/收到的礼品卡
-   - ✅ 管理员可以查看所有礼品卡
-   - ✅ 防止礼品卡代码被枚举
+1. 进入 **Developers** → **Webhooks**
+2. 点击 **"Add endpoint"**
+3. 配置：
+   ```
+   Endpoint URL: https://rejuvenessence.org/api/stripe/webhook
+   Events to send: checkout.session.completed
+   ```
+4. 创建后，点击 **"Reveal"** 复制 **Signing secret** (whsec_xxx)
+5. 在 Vercel 设置 `STRIPE_WEBHOOK_SECRET`
 
-3. **profiles 表** - 用户资料
-   - ✅ 用户只能读写自己的资料
-   - ✅ 防止信息泄露
+### 2.3 激活 Stripe 账户
 
-4. **class_bookings 表** - 课程预约
-   - ✅ 用户只能查看自己的课程预约
-   - ✅ 防止未授权访问
+- [ ] 完成企业信息填写
+- [ ] 添加银行账户信息
+- [ ] 验证身份信息
+- [ ] 测试一笔交易（可以自己购买礼品卡测试）
 
-**检查方法：**
+---
+
+## ✅ 第三步：Supabase 安全配置
+
+### 3.1 检查 RLS 策略
+
+1. 登录 https://app.supabase.com
+2. 选择你的项目
+3. 进入 **Database** → **Tables**
+4. 检查每个表的 RLS 状态
+
+**必须启用 RLS 的表：**
+- [ ] `bookings` - 预约表
+- [ ] `gift_cards` - 礼品卡表
+- [ ] `gift_card_transactions` - 交易表
+- [ ] `profiles` - 用户资料表
+- [ ] `class_bookings` - 课程预约表
+
+### 3.2 运行完整 Schema（如果是新项目）
+
 ```sql
 -- 在 Supabase Dashboard → SQL Editor 运行
-SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual
-FROM pg_policies
-WHERE schemaname = 'public';
+-- 复制 supabase/schema-complete.sql 的内容
 ```
 
----
+**⚠️ 警告：** 如果数据库已有数据，先备份！
 
-### 4. 安全性检查
+### 3.3 验证 RLS 策略
 
-#### ✅ 已经做好的安全措施
+```sql
+-- 在 SQL Editor 运行
+SELECT schemaname, tablename, policyname, permissive, roles, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
+```
 
-- ✅ `.env.local` 在 `.gitignore` 中
-- ✅ 使用 HttpOnly cookies 存储 admin session
-- ✅ Middleware 保护管理员路由
-- ✅ 输入验证和清理（gift card 输入）
-- ✅ CSRF 保护（Next.js 默认）
+**应该看到：**
+- `bookings` 有 3+ 条策略
+- `gift_cards` 有 3+ 条策略
+- `profiles` 有 3+ 条策略
 
-#### ⚠️ 需要注意的安全问题
+### 3.4 检查必要索引
 
-1. **Admin 密码过于简单**
-   ```bash
-   ADMIN_PASSCODE=010519  # ❌ 太简单，容易被猜到
-   ```
+```sql
+-- 检查索引
+SELECT
+    tablename,
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE schemaname = 'public'
+ORDER BY tablename, indexname;
+```
 
-   **建议：** 使用强密码（至少 12 位，包含大小写、数字、特殊字符）
-   ```bash
-   ADMIN_PASSCODE=YourStrong!Password123
-   ```
-
-2. **Admin token 需要更新**
-   ```bash
-   ADMIN_ENTRY_TOKEN=very-long-secret-abc123  # ⚠️ 建议更复杂
-   ```
-
-   **生成强 token：**
-   ```bash
-   # 在终端运行
-   openssl rand -hex 32
-   ```
-
-3. **隐秘路径需要保密**
-   ```bash
-   NEXT_PUBLIC_ADMIN_SECRET_PATH=/s/very-long-secret-abc123
-   ```
-   - ⚠️ 不要分享这个路径
-   - ⚠️ 部署后立即修改
+**关键索引：**
+- `gift_cards_code_idx` (UNIQUE)
+- `gift_cards_stripe_session_idx`
+- `gift_cards_payment_intent_idx`
+- `bookings_email_idx`
+- `bookings_time_idx`
 
 ---
 
-### 5. 邮件服务配置
+## ✅ 第四步：邮件服务配置
 
-#### ✅ 当前配置（Zoho SMTP）
+### 4.1 Resend API（主要邮件服务）
 
+1. 登录 https://resend.com
+2. 进入 **API Keys**
+3. 复制密钥 → Vercel 环境变量 `RESEND_API_KEY`
+4. 验证域名（如果还没有）：
+   - 进入 **Domains**
+   - 添加 `rejuvenessence.org`
+   - 配置 DNS 记录（SPF, DKIM, DMARC）
+
+### 4.2 Zoho SMTP（备用）
+
+确认以下环境变量：
 ```bash
 ZOHO_SMTP_HOST=smtp.zohocloud.ca
 ZOHO_SMTP_PORT=465
 ZOHO_SMTP_USER=michael@nesses.ca
+ZOHO_SMTP_PASS=your-app-password
 ```
+
+### 4.3 测试邮件发送
+
+部署后访问：
+```
+https://rejuvenessence.org/api/test-email?to=your-email@example.com
+```
+
+检查：
+- [ ] 邮件送达
+- [ ] 不在垃圾邮件
+- [ ] PDF 附件正常
+- [ ] 邮件样式正常
+
+---
+
+## ✅ 第五步：安全检查
+
+### 5.1 环境变量不泄露
+
+```bash
+# 确认以下文件在 .gitignore 中
+cat .gitignore | grep -E "\.env"
+```
+
+应该看到：
+```
+.env*
+!.env.example
+.env.local
+```
+
+### 5.2 修改默认密码和 Token
+
+**检查当前值（本地）：**
+```bash
+# ❌ 如果密码太简单，立即修改
+grep ADMIN_PASSCODE .env.local
+
+# ❌ 如果 token 太短或简单，立即修改
+grep ADMIN_ENTRY_TOKEN .env.local
+```
+
+**生成新值：**
+```bash
+# 强密码
+openssl rand -base64 16
+
+# 强 Token
+openssl rand -hex 32
+```
+
+### 5.3 修改隐秘路径
+
+```bash
+# 当前路径（示例）
+/s/very-long-secret-abc123
+
+# 建议修改为（保密！）
+/s/$(openssl rand -hex 16)
+```
+
+部署后访问：
+```
+https://rejuvenessence.org/s/your-new-secret-path
+```
+
+### 5.4 检查 Middleware 安全
+
+```bash
+# 确认 middleware.ts 正确保护管理员路由
+cat middleware.ts | grep -A 5 "isAdminArea"
+```
+
+---
+
+## ✅ 第六步：性能优化
+
+### 6.1 图片优化
+
+确认使用 Next.js Image 组件：
+```tsx
+import Image from 'next/image'
+```
+
+### 6.2 API 路由缓存
+
+检查 API 路由配置：
+```ts
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic'; // 不缓存动态数据
+```
+
+### 6.3 静态页面生成
+
+```bash
+# 检查哪些页面可以预渲染
+npm run build
+# 查看输出中的 Static 和 Server 标记
+```
+
+---
+
+## ✅ 第七步：部署到 Vercel
+
+### 7.1 通过 Git 部署（推荐）
+
+```bash
+# 1. 提交所有更改
+git add .
+git commit -m "Production deployment ready"
+
+# 2. 推送到 GitHub
+git push origin main
+```
+
+### 7.2 在 Vercel 创建项目
+
+1. 访问 https://vercel.com/new
+2. 选择你的 Git 仓库
+3. 配置：
+   ```
+   Framework Preset: Next.js
+   Root Directory: ./
+   Build Command: npm run build
+   Output Directory: .next
+   Install Command: npm install
+   ```
+4. 点击 **"Deploy"**
+
+### 7.3 配置自定义域名
+
+1. 等待初次部署完成
+2. 进入 **Settings** → **Domains**
+3. 添加域名：`rejuvenessence.org`
+4. 按照提示配置 DNS：
+
+**DNS 配置（在你的域名提供商）：**
+```
+Type    Name    Value
+------  ------  -----------------------
+A       @       76.76.21.21
+CNAME   www     cname.vercel-dns.com
+```
+
+5. 等待 DNS 传播（通常 5-60 分钟）
+6. Vercel 会自动配置 SSL 证书
+
+---
+
+## ✅ 第八步：部署后测试
+
+### 8.1 基础功能测试
+
+- [ ] 网站能访问：https://rejuvenessence.org
+- [ ] SSL 证书有效（绿锁）
+- [ ] 首页加载正常
+- [ ] 图片显示正常
+- [ ] 导航链接工作
+
+### 8.2 预约流程测试
+
+1. [ ] 访问 `/booking`
+2. [ ] 选择服务和时间
+3. [ ] 填写客户信息
+4. [ ] 支付押金（使用测试卡）
+5. [ ] 收到确认邮件（客户 + 店主）
+6. [ ] Admin 能看到预约
+
+**Stripe 测试卡：**
+```
+Card: 4242 4242 4242 4242
+Expiry: 任意未来日期
+CVC: 任意3位数字
+```
+
+### 8.3 礼品卡流程测试
+
+#### 测试场景 1：购买自用礼品卡
+
+1. [ ] 访问 `/giftcard/purchase`
+2. [ ] 选择 "For myself"
+3. [ ] 输入金额：$150
+4. [ ] 填写购买人信息
+5. [ ] 完成支付
+6. [ ] 检查：
+   - [ ] Success 页面显示礼品卡
+   - [ ] 购买人收到邮件（带 PDF）
+   - [ ] Admin 收到通知邮件
+   - [ ] Admin Dashboard 看到新礼品卡
+
+#### 测试场景 2：购买礼物礼品卡
+
+1. [ ] 访问 `/giftcard/purchase`
+2. [ ] 选择 "As a gift"
+3. [ ] 填写收件人信息 + 留言
+4. [ ] 完成支付
+5. [ ] 检查：
+   - [ ] 收件人收到邮件（带 PDF + 留言）
+   - [ ] 购买人收到确认邮件
+   - [ ] Admin 收到通知（显示 1 张 gift）
+   - [ ] PDF 包含个性化留言
+
+#### 测试场景 3：管理员使用礼品卡
+
+1. [ ] 登录 Admin Dashboard
+2. [ ] 进入 Gift Cards 标签
+3. [ ] 找到测试礼品卡
+4. [ ] 点击 "Record Use"
+5. [ ] 输入使用金额：$50
+6. [ ] 检查：
+   - [ ] 余额正确扣减
+   - [ ] 交易记录显示
+   - [ ] 状态仍为 "Active"（如果有余额）
+
+### 8.4 管理员功能测试
+
+1. [ ] 访问隐秘路径：`/s/your-secret-path`
+2. [ ] 输入密码登录
+3. [ ] 查看 Bookings 标签
+4. [ ] 查看 Gift Cards 标签
+5. [ ] 使用搜索功能
+6. [ ] 使用过滤功能
+7. [ ] 导出数据（如果有）
+
+### 8.5 邮件送达测试
+
+**测试邮箱类型：**
+- [ ] Gmail
+- [ ] Outlook
+- [ ] Yahoo
+- [ ] 企业邮箱
 
 **检查项：**
-- ✅ Zoho 账户已激活
-- ✅ SMTP 密码正确（`ZOHO_SMTP_PASS`）
-- ✅ 发件邮箱域名已验证
-- ✅ SPF/DKIM 记录已配置（提高送达率）
-
-**测试邮件发送：**
-部署后访问 `/api/test-email` 测试邮件功能
+- [ ] 不在垃圾邮件
+- [ ] 样式正常
+- [ ] PDF 附件能打开
+- [ ] 链接可点击
+- [ ] 移动端显示正常
 
 ---
 
-### 6. 性能优化建议
+## ✅ 第九步：监控和日志
 
-#### ✅ 已经优化的部分
+### 9.1 启用 Vercel Analytics
 
-- ✅ 静态页面预渲染（SSG）
-- ✅ 图片优化（Next.js Image）
-- ✅ 代码分割（动态导入）
-- ✅ API 路由缓存控制
+1. 进入项目 → **Analytics**
+2. 启用 **Speed Insights**
+3. 启用 **Web Vitals**
 
-#### 💡 建议优化
+### 9.2 查看函数日志
 
-1. **添加图片 CDN**
-   - 考虑使用 Vercel Image Optimization（自动）
-   - 或配置 Cloudflare CDN
-
-2. **添加监控**
-   ```bash
-   # 在 Vercel Dashboard 启用：
-   # - Analytics（流量分析）
-   # - Speed Insights（性能监控）
-   # - Web Vitals（用户体验指标）
-   ```
-
-3. **数据库索引**
-   - 确保 `gift_cards.code` 有索引
-   - 确保 `bookings.customer_email` 有索引
-   - 确保 `gift_cards.stripe_session_id` 有索引
-
----
-
-### 7. 错误处理和日志
-
-#### ✅ 已有的错误处理
-
-- ✅ API 错误返回 JSON
-- ✅ 前端 toast 提示用户
-- ✅ Webhook 错误日志
-- ✅ PDF 生成失败处理
-
-#### 💡 建议添加
-
-1. **错误监控服务**
-   - Sentry（推荐）
-   - LogRocket
-   - Datadog
-
-2. **日志聚合**
-   - Vercel 自带日志（免费）
-   - 或 Papertrail / Logtail
-
----
-
-### 8. 测试计划
-
-#### 📋 部署后必须测试的功能
-
-**预约流程：**
-- [ ] 选择服务和时间
-- [ ] 填写客户信息
-- [ ] 收到确认邮件（客户 + 店主）
-- [ ] Admin 能看到预约
-- [ ] 支付押金流程
-- [ ] 取消预约
-
-**礼品卡流程：**
-- [ ] 购买礼品卡（自用）
-- [ ] 购买礼品卡（送人）
-- [ ] 收件人收到邮件 + PDF
-- [ ] 购买人收到确认邮件
-- [ ] 店主收到通知邮件
-- [ ] 下载 PDF
-- [ ] Success 页面显示礼品卡信息
-
-**管理员功能：**
-- [ ] 登录 Admin Dashboard
-- [ ] 查看预约列表
-- [ ] 查看礼品卡列表
-- [ ] 使用礼品卡（扣款）
-- [ ] 取消礼品卡
-
-**邮件测试：**
-- [ ] 测试邮件送达率
-- [ ] 检查垃圾邮件过滤
-- [ ] 确认 PDF 附件正常
-
----
-
-## 🔧 部署步骤
-
-### 方法 1：通过 Vercel Dashboard（推荐）
-
-1. **连接 Git 仓库**
-   ```bash
-   # 如果还没有 push 代码
-   git add .
-   git commit -m "Ready for production deployment"
-   git push origin main
-   ```
-
-2. **在 Vercel 创建项目**
-   - 访问 https://vercel.com/new
-   - 选择你的 Git 仓库
-   - Framework Preset: Next.js
-   - Root Directory: `./`
-
-3. **配置环境变量**
-   - 复制 `.env.production.example` 中的所有变量
-   - 在 Vercel → Settings → Environment Variables 添加
-   - ⚠️ 确保使用生产环境的值（特别是 Stripe）
-
-4. **部署**
-   - 点击 "Deploy"
-   - 等待构建完成
-   - 访问分配的 URL 测试
-
-5. **配置域名**
-   - Vercel → Settings → Domains
-   - 添加 `rejuvenessence.org`
-   - 按照提示配置 DNS
-
-### 方法 2：通过 Vercel CLI
-
-```bash
-# 安装 Vercel CLI
-npm i -g vercel
-
-# 登录
-vercel login
-
-# 部署
-vercel --prod
-
-# 按照提示配置环境变量
+```
+Vercel Dashboard → Deployments → 最新部署 → Functions
 ```
 
+**常看日志：**
+- `/api/stripe/webhook` - Stripe 回调
+- `/api/giftcard/checkout` - 礼品卡购买
+- `/api/book` - 预约创建
+
+### 9.3 设置错误通知
+
+1. 考虑集成 Sentry：
+   ```bash
+   npm install @sentry/nextjs
+   npx @sentry/wizard@latest -i nextjs
+   ```
+
+2. 或使用 Vercel 内置错误通知：
+   ```
+   Settings → Notifications → Error Notifications
+   ```
+
 ---
 
-## 🔍 部署后检查
+## ✅ 第十步：性能优化建议
 
-### 1. 立即检查
-
-- [ ] 网站能正常访问
-- [ ] SSL 证书正常（HTTPS）
-- [ ] 所有页面能正常加载
-- [ ] 图片正常显示
-- [ ] API 路由正常工作
-
-### 2. 功能测试
-
-- [ ] 完整测试预约流程
-- [ ] 完整测试礼品卡购买
-- [ ] 测试管理员登录
-- [ ] 测试邮件发送
-- [ ] 测试 PDF 生成
-
-### 3. 性能检查
+### 10.1 Lighthouse 测试
 
 ```bash
-# 使用 Lighthouse 测试
-# Chrome DevTools → Lighthouse → Generate report
-
-# 或使用在线工具
-https://pagespeed.web.dev/
+# 在 Chrome DevTools 运行
+# 目标分数：
+Performance:    > 90
+Accessibility:  > 95
+Best Practices: > 95
+SEO:            > 90
 ```
 
-**目标指标：**
-- Performance: > 90
-- Accessibility: > 95
-- Best Practices: > 95
-- SEO: > 90
+### 10.2 优化建议
+
+如果性能不达标：
+
+**性能 < 90：**
+- [ ] 优化图片（使用 WebP）
+- [ ] 启用图片懒加载
+- [ ] 减少 JavaScript 包大小
+- [ ] 使用动态导入
+
+**可访问性 < 95：**
+- [ ] 添加 alt 文本
+- [ ] 改善颜色对比度
+- [ ] 添加 ARIA 标签
+
+**SEO < 90：**
+- [ ] 添加 meta 描述
+- [ ] 优化标题标签
+- [ ] 添加结构化数据
 
 ---
 
-## 🆘 常见问题排查
+## 🚨 常见问题排查
 
-### Stripe Webhook 不工作
+### 问题 1：Stripe Webhook 不工作
 
 **症状：** 支付成功但礼品卡未创建
 
-**解决方案：**
-1. 检查 Stripe Dashboard → Webhooks → 查看请求日志
-2. 确认 webhook URL 正确：`https://rejuvenessence.org/api/stripe/webhook`
+**排查步骤：**
+1. 检查 Stripe Dashboard → Webhooks → 查看请求
+2. 查看 Vercel 函数日志：
+   ```
+   Deployments → Functions → /api/stripe/webhook
+   ```
 3. 确认 `STRIPE_WEBHOOK_SECRET` 正确
-4. 检查 Vercel 函数日志
+4. 测试 webhook：
+   ```bash
+   # 在 Stripe Dashboard 点击 "Send test webhook"
+   ```
 
-### 邮件发送失败
+**常见原因：**
+- ❌ Webhook URL 错误
+- ❌ Webhook secret 不匹配
+- ❌ 未选择 `checkout.session.completed` 事件
+
+---
+
+### 问题 2：邮件发送失败
 
 **症状：** 用户未收到邮件
 
-**解决方案：**
+**排查步骤：**
 1. 检查 Vercel 函数日志
-2. 确认 Zoho SMTP 凭证正确
-3. 检查收件箱垃圾邮件文件夹
-4. 测试 SMTP 连接：
+2. 测试 Resend API：
    ```bash
-   # 在本地测试
-   npm run dev
-   # 访问 /api/test-email
+   curl -X POST 'https://api.resend.com/emails' \
+     -H 'Authorization: Bearer YOUR_API_KEY' \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "from": "noreply@rejuvenessence.org",
+       "to": "test@example.com",
+       "subject": "Test",
+       "html": "<p>Test</p>"
+     }'
    ```
+3. 检查 Resend Dashboard → Logs
+4. 检查收件人垃圾邮件文件夹
 
-### Admin 无法登录
+**常见原因：**
+- ❌ API 密钥错误
+- ❌ 域名未验证
+- ❌ SPF/DKIM 未配置
+- ❌ 邮件被标记为垃圾邮件
+
+---
+
+### 问题 3：Admin 无法登录
 
 **症状：** 密码正确但无法登录
 
-**解决方案：**
+**排查步骤：**
 1. 清除浏览器 cookies
-2. 确认 `ADMIN_PASSCODE` 在 Vercel 环境变量中设置正确
-3. 检查 middleware 日志
-4. 使用隐秘路径：`/s/your-secret-path`
+2. 检查 Vercel 环境变量：
+   ```
+   Settings → Environment Variables → ADMIN_PASSCODE
+   ```
+3. 检查 middleware.ts 日志
+4. 尝试使用 token URL：
+   ```
+   https://rejuvenessence.org/admin/login?t=YOUR_TOKEN
+   ```
+
+**常见原因：**
+- ❌ 环境变量未设置
+- ❌ 环境变量值有空格
+- ❌ Cookie 设置错误
 
 ---
 
-## 📊 监控和维护
+### 问题 4：礼品卡未创建
 
-### 定期检查
+**症状：** 支付成功但数据库无记录
 
-**每天：**
-- 检查 Vercel 函数日志
-- 查看错误率
-- 监控 Stripe Dashboard
+**排查步骤：**
+1. 检查 Webhook 日志：
+   ```
+   [webhook] Processing gift card purchase
+   [webhook] Gift card created: RJ-XXXX-XXXX
+   ```
+2. 检查 Supabase 日志：
+   ```
+   Supabase Dashboard → Logs → Postgres Logs
+   ```
+3. 检查 RLS 策略：
+   ```sql
+   SELECT * FROM gift_cards; -- 使用 service_role 查询
+   ```
 
-**每周：**
-- 审查预约数据
-- 检查礼品卡使用情况
-- 审查邮件送达率
-
-**每月：**
-- 备份数据库
-- 检查安全更新
-- 审查性能指标
+**常见原因：**
+- ❌ Webhook 未触发
+- ❌ Service role key 错误
+- ❌ 数据库权限问题
+- ❌ RLS 策略过严
 
 ---
 
-## 🎉 完成部署后
+## 📊 监控指标
+
+### 每天检查
+
+- [ ] Vercel 函数调用次数
+- [ ] 错误率
+- [ ] 响应时间
+
+### 每周检查
+
+- [ ] 预约数量
+- [ ] 礼品卡销售额
+- [ ] 邮件送达率
+- [ ] 用户增长
+
+### 每月检查
+
+- [ ] 数据库大小
+- [ ] Stripe 交易量
+- [ ] 性能指标
+- [ ] 安全更新
+
+---
+
+## 🔒 安全最佳实践
+
+### 定期更新
+
+```bash
+# 每月检查依赖更新
+npm outdated
+
+# 更新依赖
+npm update
+
+# 检查安全漏洞
+npm audit
+
+# 修复漏洞
+npm audit fix
+```
+
+### 备份策略
+
+1. **数据库备份**（Supabase 自动）
+   - 进入 Database → Backups
+   - 确认每日备份已启用
+
+2. **手动备份**（重要更新前）
+   ```sql
+   -- 在 Supabase SQL Editor
+   COPY (SELECT * FROM gift_cards) TO '/tmp/gift_cards_backup.csv' CSV HEADER;
+   COPY (SELECT * FROM bookings) TO '/tmp/bookings_backup.csv' CSV HEADER;
+   ```
+
+3. **代码备份**
+   - Git tags for releases:
+     ```bash
+     git tag -a v1.0.0 -m "Production release 1.0.0"
+     git push origin v1.0.0
+     ```
+
+---
+
+## ✅ 完成检查清单
+
+### 部署前
+
+- [ ] 所有环境变量已在 Vercel 配置
+- [ ] Stripe 切换到 Live mode
+- [ ] Webhook URL 已创建并配置
+- [ ] Supabase RLS 策略已启用
+- [ ] 数据库索引已创建
+- [ ] 邮件域名已验证
+- [ ] 管理员密码已修改为强密码
+- [ ] Admin token 已修改为强随机值
+- [ ] 隐秘路径已修改
+- [ ] .env.local 已在 .gitignore
+
+### 部署后
+
+- [ ] 网站能正常访问
+- [ ] SSL 证书有效
+- [ ] 完整测试预约流程
+- [ ] 完整测试礼品卡购买
+- [ ] 完整测试管理员功能
+- [ ] 邮件发送正常
+- [ ] PDF 附件正常
+- [ ] Webhook 正常工作
+- [ ] Lighthouse 分数 > 90
+- [ ] 错误监控已启用
+
+---
+
+## 📞 紧急联系
+
+如果遇到严重问题：
+
+1. **回滚部署**
+   ```
+   Vercel Dashboard → Deployments → 选择上一个稳定版本 → Promote to Production
+   ```
+
+2. **启用维护模式**
+   ```
+   Vercel → Environment Variables → 添加:
+   NEXT_PUBLIC_MAINTENANCE=1
+   ```
+
+3. **检查日志**
+   ```
+   Vercel Dashboard → Functions
+   Supabase Dashboard → Logs
+   Stripe Dashboard → Developers → Events
+   ```
+
+---
+
+## 🎉 部署成功后
 
 1. **通知团队**
    - 网站已上线
    - 分享管理员访问方式
-   - 分享监控仪表板
+   - 分享监控链接
 
-2. **更新文档**
+2. **文档更新**
    - 记录域名和访问方式
-   - 更新 Stripe webhook URL
-   - 更新邮件配置
+   - 更新 API 文档
+   - 更新运维手册
 
-3. **备份关键信息**
-   - 保存环境变量备份
-   - 保存 Stripe 密钥
-   - 保存管理员凭证
+3. **庆祝！** 🎊
 
 ---
 
-## 📚 有用的资源
-
-- [Vercel 部署文档](https://vercel.com/docs)
-- [Next.js 生产部署](https://nextjs.org/docs/deployment)
-- [Stripe Webhooks 指南](https://stripe.com/docs/webhooks)
-- [Supabase 生产最佳实践](https://supabase.com/docs/guides/platform/going-into-prod)
-
----
-
-**祝部署顺利！** 🚀
-
-如果遇到问题，检查：
-1. Vercel 函数日志
-2. Stripe Dashboard
-3. Supabase Dashboard → Logs
-4. 浏览器控制台
+**最后更新：** 2024-11-14
+**维护者：** Rejuvenessence Dev Team
+**技术支持：** Claude Code
