@@ -184,7 +184,6 @@ export default function AdminCalendar({ onEventClick }: Props) {
             </div>
 
             {/* 操作按钮区 */}
-{/* 操作按钮区 */}
 <div className="mt-6 flex flex-col sm:flex-row gap-3">
   <motion.button
     whileTap={{ scale: 0.96 }}

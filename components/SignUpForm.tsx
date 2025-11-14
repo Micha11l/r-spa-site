@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
 
 type Form = {
   email: string;
@@ -23,7 +23,7 @@ type Form = {
 };
 
 export default function SignUpForm() {
-  const supabase = supabaseBrowser();
+  const supabase = createClient();
   const [step, setStep] = useState<"form" | "code">("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

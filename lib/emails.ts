@@ -38,6 +38,10 @@ const BCC_OWNER =
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
+// =====================================================
+// Existing Email Functions
+// =====================================================
+
 export async function sendDepositEmail(to: string, name: string, checkoutUrl: string) {
   const { subject, html } = buildEmailTemplate("deposit", name, { checkoutUrl });
   await resend.emails.send({
@@ -76,7 +80,6 @@ export async function sendPaymentSuccessEmail(
   });
 }
 
-
 function buildTransport() {
   const host = process.env.ZOHO_SMTP_HOST || "smtp.zohocloud.ca";
   const port = Number(process.env.ZOHO_SMTP_PORT || 465);
@@ -97,6 +100,7 @@ function fmtWhen(iso: string) {
   const d = dayjs(iso).tz(TZ);
   return `${d.format("ddd, MMM D, YYYY")} · ${d.format("h:mm A")} (${TZ})`;
 }
+
 function diffMin(aISO: string, bISO: string) {
   return Math.max(
     0,
@@ -247,4 +251,259 @@ If you need to change the time, just reply to this email.
       ...(BCC_OWNER ? { bcc: owner } : {}),
     },
   });
+}
+
+// =====================================================
+// Gift Card Email Functions
+// =====================================================
+
+/**
+ * Send gift card email to recipient (either buyer or gift recipient)
+ */
+export async function sendGiftCardEmail(params: {
+  code: string;
+  token: string;
+  amount: number;
+  recipientEmail: string;
+  recipientName?: string | null;
+  senderName?: string | null;
+  message?: string | null;
+  isGift: boolean;
+}) {
+  const {
+    code,
+    token,
+    amount,
+    recipientEmail,
+    recipientName,
+    senderName,
+    message,
+    isGift,
+  } = params;
+
+  // Format amount
+  const amountFormatted = `$${amount.toFixed(2)} CAD`;
+
+  // Build redeem URL
+  const redeemUrl = `${SITE_URL}/giftcard/redeem?token=${token}`;
+
+  // Build email template
+  const { subject, html } = buildEmailTemplate("gift_card_recipient", recipientName || "there", {
+    code,
+    amount: amountFormatted,
+    senderName: senderName || undefined,
+    recipientName: recipientName || undefined,
+    message: message || undefined,
+    redeemUrl,
+    isGift,
+  });
+
+  // Send via Resend (to customer)
+  try {
+    await resend.emails.send({
+      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+      to: recipientEmail,
+      subject,
+      html,
+      // TODO: Add PDF attachment
+      // attachments: [
+      //   {
+      //     filename: `Gift-Card-${code}.pdf`,
+      //     content: pdfBuffer,
+      //     contentType: 'application/pdf',
+      //   }
+      // ]
+    });
+
+    console.log(`[email] Gift card sent to ${recipientEmail}`);
+  } catch (error: any) {
+    console.error(`[email] Failed to send gift card email:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Send purchase confirmation to buyer
+ */
+export async function sendGiftCardPurchaseConfirmation(params: {
+  senderEmail: string;
+  senderName: string;
+  totalAmount: number;
+  cards: Array<{
+    code: string;
+    amount: number;
+    isGift: boolean;
+    recipientEmail: string;
+  }>;
+}) {
+  const { senderEmail, senderName, totalAmount, cards } = params;
+
+  // Format total amount
+  const totalFormatted = `$${totalAmount.toFixed(2)} CAD`;
+
+  // Build email template
+  const { subject, html } = buildEmailTemplate(
+    "gift_card_purchase_confirm",
+    senderName,
+    {
+      senderName,
+      totalAmount: totalFormatted,
+      cardCount: cards.length,
+      cards,
+    }
+  );
+
+  // Send via Resend (to buyer)
+  try {
+    await resend.emails.send({
+      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+      to: senderEmail,
+      subject,
+      html,
+    });
+
+    console.log(`[email] Purchase confirmation sent to ${senderEmail}`);
+  } catch (error: any) {
+    console.error(`[email] Failed to send purchase confirmation:`, error);
+    throw error;
+  }
+
+  // Also notify owner via Zoho
+  try {
+    const transporter = buildTransport();
+    const owner = process.env.RESEND_OWNER_EMAIL!;
+
+    const giftsCount = cards.filter(c => c.isGift).length;
+    const selfCount = cards.length - giftsCount;
+
+    const ownerText = [
+      `New Gift Card Purchase`,
+      ``,
+      `Buyer:        ${senderName} (${senderEmail})`,
+      `Total:        $${totalAmount.toFixed(2)} CAD`,
+      `Cards:        ${cards.length}`,
+      `For self:     ${selfCount}`,
+      `As gifts:     ${giftsCount}`,
+      ``,
+      `Details:`,
+      ...cards.map((card, i) => 
+        `${i + 1}. ${card.code} - $${card.amount} - ${card.isGift ? `Gift to ${card.recipientEmail}` : 'For buyer'}`
+      ),
+      ``,
+      `All gift cards have been sent to recipients.`,
+    ].join("\n");
+
+    await transporter.sendMail({
+      from: `${SITE_NAME} <${process.env.ZOHO_SMTP_USER}>`,
+      to: owner,
+      subject: `Gift Card Purchase - ${senderName} - $${totalAmount.toFixed(2)}`,
+      text: ownerText,
+      replyTo: `${senderName} <${senderEmail}>`,
+      envelope: {
+        from: process.env.ZOHO_SMTP_USER!,
+        to: [owner],
+      },
+    });
+
+    console.log(`[email] Owner notification sent`);
+  } catch (error: any) {
+    console.error(`[email] Failed to send owner notification:`, error);
+    // Don't throw - customer email is more important
+  }
+}
+export async function sendGiftCardUseNotification(params: {
+  giftCard: any;
+  amountUsed: number;
+  newBalance: number;
+  serviceName: string;
+}) {
+  const { giftCard, amountUsed, newBalance, serviceName } = params;
+
+  // Determine who to notify
+  const notifyEmail = giftCard.is_gift && giftCard.recipient_email
+    ? giftCard.recipient_email
+    : giftCard.sender_email || giftCard.purchased_by_email;
+
+  if (!notifyEmail) {
+    console.log("[email] No email to notify for gift card use");
+    return;
+  }
+
+  const notifyName = giftCard.is_gift && giftCard.recipient_name
+    ? giftCard.recipient_name
+    : giftCard.sender_name || "there";
+
+  // Format amounts
+  const amountUsedFormatted = `$${(amountUsed / 100).toFixed(2)}`;
+  const newBalanceFormatted = `$${(newBalance / 100).toFixed(2)}`;
+
+  // Build email
+  const subject = `Gift Card Used - ${amountUsedFormatted}`;
+  const html = `
+    <div style="font-family:system-ui, sans-serif; background:#f6f7f9; padding:24px;">
+      <table align="center" style="max-width:600px; background:#fff; padding:24px; border-radius:12px;">
+        <tr>
+          <td align="center">
+            <img src="${SITE_URL}/logo.png" width="96" style="border-radius:8px;" />
+            <h2 style="margin-top:16px;">Hi ${notifyName},</h2>
+            
+            <div style="background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+                        padding:24px; border-radius:12px; color:white; margin:24px 0;">
+              <div style="font-size:18px; opacity:0.9; margin-bottom:8px;">Transaction</div>
+              <div style="font-size:42px; font-weight:700; margin:12px 0;">
+                ${amountUsedFormatted}
+              </div>
+              <div style="font-size:14px; opacity:0.9;">was used from your gift card</div>
+            </div>
+
+            <div style="background:#f9fafb; border-radius:12px; padding:20px; margin:24px 0; text-align:left;">
+              <table style="width:100%;">
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Service:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right;">${serviceName}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Date:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right;">${new Date().toLocaleDateString()}</td>
+                </tr>
+                <tr style="border-top:2px solid #e5e7eb;">
+                  <td style="padding:12px 0 8px; color:#374151; font-weight:600;">Remaining Balance:</td>
+                  <td style="padding:12px 0 8px; font-size:20px; font-weight:700; color:#10b981; text-align:right;">
+                    ${newBalanceFormatted}
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <p style="color:#6b7280; font-size:14px; margin:24px 0;">
+              Thank you for choosing ${SITE_NAME}!
+            </p>
+
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+            <p style="font-size:12px;color:#999;">
+              ${SITE_NAME} · ${SITE_ADDRESS} ·
+              <a href="mailto:${CONTACT_EMAIL}" style="color:#999;text-decoration:underline">
+                ${CONTACT_EMAIL}
+              </a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  // Send email
+  try {
+    await resend.emails.send({
+      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+      to: notifyEmail,
+      subject,
+      html,
+    });
+
+    console.log(`[email] Gift card use notification sent to ${notifyEmail}`);
+  } catch (error: any) {
+    console.error(`[email] Failed to send use notification:`, error);
+    // Don't throw - this is not critical
+  }
 }

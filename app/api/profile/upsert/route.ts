@@ -1,7 +1,7 @@
 // app/api/profile/upsert/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

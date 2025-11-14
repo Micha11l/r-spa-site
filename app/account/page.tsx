@@ -1,8 +1,10 @@
+// app/account/page.tsx
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
+import WalletCard from '@/components/account/WalletCard';
 
 type Profile = {
   first_name?: string;
@@ -32,10 +34,8 @@ type SlotInfo = {
   capacity: number;
 };
 
-const CAPACITY = 5;
-
 export default function AccountPage() {
-  const supabase = supabaseBrowser();
+  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [profile, setProfile] = useState<Profile>({});
   const [saving, setSaving] = useState(false);
@@ -43,8 +43,7 @@ export default function AccountPage() {
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [past, setPast] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
-
-  // ====== 小班课 ======
+  // ====== Small-group classes ======
   const [clsType, setClsType] = useState<"stretching" | "yoga" | "pilates">("stretching");
   const [clsDate, setClsDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [slots, setSlots] = useState<SlotInfo[]>([]);
@@ -52,6 +51,12 @@ export default function AccountPage() {
   const [clsMsg, setClsMsg] = useState<string | null>(null);
   const [mySlots, setMySlots] = useState<string[]>([]);
   const [busySlots, setBusySlots] = useState<Set<string>>(new Set());
+
+  // Advanced: Check if it's winter (November to March)
+  const isWinter = useMemo(() => {
+    const month = dayjs().month(); // 0-11
+    return month >= 10 || month <= 2; // Nov (10) to Mar (2)
+  }, []);
 
   // 当前用户
   useEffect(() => {
@@ -131,7 +136,7 @@ export default function AccountPage() {
     }
   }
 
-  // ====== 小班课部分 ======
+  // ====== Small-group classes part ======
   const slotTemplate = useMemo(
     () => [
       { start: "06:30", end: "07:30" },
@@ -159,16 +164,22 @@ export default function AccountPage() {
       });
       const j = await res.json();
       const counts = j.counts || {};
+      const capacities = j.capacities || {}; // Added: Get capacity from API
       setMySlots(j.mine || []);
+     
+      // Use dynamic capacity
       setSlots(
-        slotTemplate.map((t) => ({
-          ...t,
-          count: counts[`${t.start}-${t.end}`] || 0,
-          capacity: CAPACITY,
-        }))
+        slotTemplate.map((t) => {
+          const key = `${t.start}-${t.end}`;
+          return {
+            ...t,
+            count: counts[key] || 0,
+            capacity: capacities[key] || 5, // Use API-returned capacity, default 5
+          };
+        })
       );
     } catch (e: any) {
-      setClsMsg(e?.message || "Load failed");
+      toast.error(e?.message || "Failed to load class slots");
     } finally {
       setLoadingSlots(false);
     }
@@ -180,13 +191,19 @@ export default function AccountPage() {
 
   async function signUpForSlot(s: SlotInfo) {
     const key = `${s.start}-${s.end}`;
+    const isMine = mySlots.includes(key);
+    if (isWinter && !isMine) {
+      toast.error("Classes are suspended during winter. You can withdraw from existing sign-ups if needed.");
+      return;
+    }
     setBusySlots((prev) => new Set([...prev, key]));
     setClsMsg(null);
-
     try {
       const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) throw new Error("Not signed in");
-
+      if (!sess.session) {
+        toast.error("Please sign in to join classes");
+        throw new Error("Not signed in");
+      }
       const res = await fetch("/api/classes/signup", {
         method: "POST",
         headers: {
@@ -200,20 +217,42 @@ export default function AccountPage() {
           end: s.end,
         }),
       });
-
       const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "Signup failed");
-      setClsMsg(j?.message || "Updated!");
+     
+      if (!res.ok) {
+        // Handle different error cases
+        const errorMsg = j?.error || "Signup failed";
+       
+        // Added: Handle cross-type conflict
+        if (errorMsg === "already_signed_other" && j.other_type) {
+          toast.error(`You've already signed into ${j.other_type}`);
+        } else if (errorMsg.includes("duplicate") || errorMsg.includes("already")) {
+          toast.error("You've already signed up for this class");
+        } else if (errorMsg === "class_full" || errorMsg.includes("full") || errorMsg.includes("capacity")) {
+          toast.error("This class is full");
+        } else {
+          toast.error(errorMsg);
+        }
+        throw new Error(errorMsg);
+      }
+     
+      // Success prompt
+      if (j?.message === "Withdrawn") {
+        toast.success("Successfully withdrawn from class");
+      } else {
+        toast.success("Successfully signed up for class!");
+      }
+     
       await loadSlots();
     } catch (e: any) {
-      setClsMsg(e?.message || "Signup failed");
+      // Errors are already handled above, no need to display again
+      console.error("Signup error:", e);
     } finally {
       setBusySlots((prev) => {
         const next = new Set(prev);
         next.delete(key);
         return next;
       });
-      setTimeout(() => setClsMsg(null), 2000);
     }
   }
 
@@ -223,6 +262,16 @@ export default function AccountPage() {
   }
 
   return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+         {/* ⭐ 新添加 - Wallet Section */}
+         <section>
+          <h2 className="text-xl font-light text-slate-900 mb-4">
+            Wallet
+          </h2>
+          <WalletCard />
+        </section>
+      
     <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
       <header className="flex flex-wrap items-center gap-4 justify-between">
@@ -234,16 +283,15 @@ export default function AccountPage() {
           Sign out
         </button>
       </header>
-
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile */}
-        <section className="rounded-xl border bg-white p-4 md:p-6">
+        <section className="rounded-xl border bg-white p-6">
           <h2 className="text-xl font-semibold">Faster checkout</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Save your contact info. When you book, we’ll prefill your details.
+          <p className="mt-2 text-sm text-zinc-600">
+            Save your contact info. When you book, we'll prefill your details.
           </p>
-
-          <form onSubmit={saveProfile} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={saveProfile} className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               ["First name", "first_name"],
               ["Last name", "last_name"],
@@ -254,71 +302,82 @@ export default function AccountPage() {
               ["Country", "country"],
             ].map(([label, key]) => (
               <div key={key} className={key === "street" ? "md:col-span-2" : ""}>
-                <label className="block text-sm mb-1">{label}</label>
+                <label className="block text-sm font-medium mb-2">{label}</label>
                 <input
                   value={(profile as any)[key] ?? ""}
                   onChange={(e) => setProfile((p) => ({ ...p, [key]: e.target.value }))}
-                  className="w-full border rounded px-2 py-1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             ))}
-
-            <div className="md:col-span-2 flex items-center justify-between">
+            <div className="md:col-span-2 flex items-center justify-between pt-4">
               <span className="text-sm text-zinc-600">
-                We’ll also prefill your info during booking.
+                We'll also prefill your info during booking.
               </span>
               <button className="btn btn-primary" disabled={saving}>
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
-            {saveMsg && <div className="md:col-span-2 text-sm text-zinc-700">{saveMsg}</div>}
+            {saveMsg && (
+              <div className={`md:col-span-2 text-sm ${saveMsg === "Saved!" ? "text-green-600" : "text-red-600"}`}>
+                {saveMsg}
+              </div>
+            )}
           </form>
         </section>
-
+  
         {/* Bookings */}
-        <section className="rounded-xl border bg-white p-4 md:p-6">
+        <section className="rounded-xl border bg-white p-6">
           <h2 className="text-xl font-semibold">Track appointments</h2>
-          <p className="mt-1 text-sm text-zinc-600">
+          <p className="mt-2 text-sm text-zinc-600">
             View upcoming and past appointments.
           </p>
-
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-medium">Upcoming</h3>
+              <h3 className="font-medium text-lg mb-3">Upcoming</h3>
               {loadingBookings ? (
-                <p className="mt-2 text-sm text-zinc-500">Loading…</p>
+                <p className="text-sm text-zinc-500">Loading…</p>
               ) : upcoming.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-500">No upcoming appointments.</p>
+                <p className="text-sm text-zinc-500">No upcoming appointments.</p>
               ) : (
-                <ul className="mt-2 space-y-2">
+                <ul className="space-y-3">
                   {upcoming.map((b) => (
-                    <li key={b.id} className="rounded border p-3 text-sm">
+                    <li key={b.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
                       <div className="font-medium">{b.service_name}</div>
-                      <div className="text-zinc-600">
+                      <div className="text-zinc-600 text-sm mt-1">
                         {dayjs(b.start_at).format("MMM D, YYYY h:mm A")} –{" "}
                         {dayjs(b.end_at).format("h:mm A")}
                       </div>
                       {b.status && (
-                        <div className="text-zinc-500 mt-1">Status: {b.status}</div>
+                        <div className="text-zinc-500 text-sm mt-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            b.status === "confirmed" 
+                              ? "bg-green-100 text-green-800"
+                              : b.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {b.status}
+                          </span>
+                        </div>
                       )}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
-
             <div>
-              <h3 className="font-medium">Past</h3>
+              <h3 className="font-medium text-lg mb-3">Past</h3>
               {loadingBookings ? (
-                <p className="mt-2 text-sm text-zinc-500">Loading…</p>
+                <p className="text-sm text-zinc-500">Loading…</p>
               ) : past.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-500">No past appointments.</p>
+                <p className="text-sm text-zinc-500">No past appointments.</p>
               ) : (
-                <ul className="mt-2 space-y-2">
+                <ul className="space-y-3">
                   {past.map((b) => (
-                    <li key={b.id} className="rounded border p-3 text-sm">
+                    <li key={b.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
                       <div className="font-medium">{b.service_name}</div>
-                      <div className="text-zinc-600">
+                      <div className="text-zinc-600 text-sm mt-1">
                         {dayjs(b.start_at).format("MMM D, YYYY h:mm A")} –{" "}
                         {dayjs(b.end_at).format("h:mm A")}
                       </div>
@@ -328,24 +387,54 @@ export default function AccountPage() {
               )}
             </div>
           </div>
-
-          <div className="mt-4">
-            <a href="/booking" className="btn btn-ghost">
+          <div className="mt-6">
+            <a href="/booking" className="btn btn-primary">
               Book another session
             </a>
           </div>
         </section>
-
+  
         {/* Small-group classes */}
-        <section className="rounded-xl border bg-white p-4 md:p-6 lg:col-span-2">
-          <h2 className="text-xl font-semibold">Small-group classes</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Stretching / Yoga / Pilates. Up to 5 people per class. A class runs once 5 sign-ups are reached.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-3 items-center">
+        <section className="rounded-xl border bg-white p-6 lg:col-span-2 space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold">Small-group classes</h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Stretching / Yoga / Pilates. Up to 5 people per class. A class runs once 5 sign-ups are reached.
+            </p>
+          </div>
+  
+          {/* Seasonal Reminder with Animation */}
+          {isWinter && (
+            <div className="rounded-xl border-2 border-yellow-300 bg-gradient-to-br from-yellow-50 to-amber-50 p-6 text-yellow-800 shadow-lg animate-pulse">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 mt-1">
+                  <svg 
+                    className="w-6 h-6 text-yellow-600 animate-bounce" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2"
+                  >
+                    <path d="M12 3V21M4 12H20M6.34315 6.34315L17.6569 17.6569M6.34315 17.6569L17.6569 6.34315M3 12L5 10M3 12L5 14M21 12L19 10M21 12L19 14M12 3L10 5M12 3L14 5M12 21L10 19M12 21L14 19"/>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+                    Seasonal Reminder
+                  </h3>
+                  <p className="text-yellow-700 text-sm leading-relaxed">
+                    Due to the winter season, small-group classes (Stretching / Yoga / Pilates) are temporarily suspended. 
+                    We will resume services in suitable seasons, stay tuned! In the meantime, we recommend trying our individual appointment services.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {/* Class Controls */}
+          <div className="flex flex-wrap gap-4 items-center">
             <select
-              className="border rounded px-2 py-1"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={clsType}
               onChange={(e) => setClsType(e.target.value as any)}
             >
@@ -355,16 +444,21 @@ export default function AccountPage() {
             </select>
             <input
               type="date"
-              className="border rounded px-2 py-1"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={clsDate}
               onChange={(e) => setClsDate(e.target.value)}
             />
-            <button className="btn btn-ghost" onClick={loadSlots} disabled={loadingSlots}>
+            <button 
+              className="btn btn-ghost border border-gray-300 hover:bg-gray-50" 
+              onClick={loadSlots} 
+              disabled={loadingSlots}
+            >
               {loadingSlots ? "Refreshing…" : "Refresh"}
             </button>
           </div>
-
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+  
+          {/* Time Slots Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {slots.map((s) => {
               const key = `${s.start}-${s.end}`;
               const isBusy = busySlots.has(key);
@@ -372,18 +466,20 @@ export default function AccountPage() {
               const full = left === 0;
               const isMine = mySlots.includes(key);
               const ready = s.count >= s.capacity;
-
+              
               return (
-                <div key={key} className="rounded border p-3">
-                  <div className="font-medium">
+                <div key={key} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+                  <div className="font-medium text-gray-900">
                     {s.start}–{s.end}
                   </div>
-                  <div className="text-sm text-zinc-600 mt-1">
+                  <div className="text-sm text-zinc-600 mt-2">
                     {s.count}/{s.capacity} signed up{" "}
-                    {ready && <span className="text-green-600">• Ready to run</span>}
+                    {ready && (
+                      <span className="text-green-600 font-medium">• Ready to run</span>
+                    )}
                   </div>
                   <button
-                    className={`btn w-full mt-2 transition-all ${
+                    className={`btn w-full mt-3 transition-all ${
                       isMine
                         ? isBusy
                           ? "btn-outline opacity-70 cursor-wait"
@@ -411,10 +507,16 @@ export default function AccountPage() {
               );
             })}
           </div>
-
-          {clsMsg && <div className="mt-3 text-sm text-zinc-700">{clsMsg}</div>}
+          
+          {clsMsg && (
+            <div className="text-sm text-zinc-700 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              {clsMsg}
+            </div>
+          )}
         </section>
       </div>
+    </div>
+  </div>
     </div>
   );
 }

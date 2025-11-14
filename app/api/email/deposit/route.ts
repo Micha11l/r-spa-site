@@ -1,7 +1,7 @@
 // app/api/email/deposit/route.ts
 import { NextResponse } from "next/server";
 import { sendDepositEmail } from "@/lib/emails";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {

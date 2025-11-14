@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
 
 type Profile = { first_name?: string | null; last_name?: string | null };
 
@@ -28,7 +28,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => createClient(), []);
 
   // 路由变化时自动收起
   useEffect(() => setOpen(false), [pathname]);
