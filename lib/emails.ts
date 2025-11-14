@@ -6,6 +6,7 @@ import tz from "dayjs/plugin/timezone";
 import { makeICS } from "./ics";
 import { Resend } from "resend";
 import { buildEmailTemplate } from "./emailTemplates";
+import { renderGiftPdfBuffer } from "./gift-pdf";
 dayjs.extend(utc);
 dayjs.extend(tz);
 
@@ -269,6 +270,8 @@ export async function sendGiftCardEmail(params: {
   senderName?: string | null;
   message?: string | null;
   isGift: boolean;
+  expiresAt?: string | null;
+  purchasedAt?: string;
 }) {
   const {
     code,
@@ -279,6 +282,8 @@ export async function sendGiftCardEmail(params: {
     senderName,
     message,
     isGift,
+    expiresAt,
+    purchasedAt,
   } = params;
 
   // Format amount
@@ -298,6 +303,25 @@ export async function sendGiftCardEmail(params: {
     isGift,
   });
 
+  // Generate PDF attachment
+  let pdfBuffer: Buffer | null = null;
+  try {
+    pdfBuffer = await renderGiftPdfBuffer({
+      value: amount,
+      code,
+      recipient: recipientName,
+      sender: senderName,
+      message,
+      expiresAt,
+      purchasedAt,
+      isGift,
+    });
+    console.log(`[email] PDF generated for gift card ${code}`);
+  } catch (error: any) {
+    console.error(`[email] Failed to generate PDF for ${code}:`, error);
+    // Continue without PDF - email is more important
+  }
+
   // Send via Resend (to customer)
   try {
     await resend.emails.send({
@@ -305,17 +329,17 @@ export async function sendGiftCardEmail(params: {
       to: recipientEmail,
       subject,
       html,
-      // TODO: Add PDF attachment
-      // attachments: [
-      //   {
-      //     filename: `Gift-Card-${code}.pdf`,
-      //     content: pdfBuffer,
-      //     contentType: 'application/pdf',
-      //   }
-      // ]
+      attachments: pdfBuffer
+        ? [
+            {
+              filename: `Rejuvenessence-Gift-Card-${code}.pdf`,
+              content: pdfBuffer,
+            },
+          ]
+        : undefined,
     });
 
-    console.log(`[email] Gift card sent to ${recipientEmail}`);
+    console.log(`[email] Gift card sent to ${recipientEmail}${pdfBuffer ? ' with PDF' : ' (no PDF)'}`);
   } catch (error: any) {
     console.error(`[email] Failed to send gift card email:`, error);
     throw error;

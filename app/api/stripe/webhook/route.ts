@@ -179,6 +179,8 @@ async function handleGiftCardPurchase(session: any) {
         senderName: isGift ? senderName : null,
         message: isGift ? card.message : null,
         isGift,
+        expiresAt: expiresAt.toISOString(),
+        purchasedAt: new Date().toISOString(),
       });
 
       console.log(`[webhook] Gift card email sent to ${recipientEmail}`);

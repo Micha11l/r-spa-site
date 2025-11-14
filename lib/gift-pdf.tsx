@@ -1,17 +1,18 @@
 // lib/gift-pdf.tsx
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
 
-// 品牌色彩（根据你的网站调整）
+// 品牌色彩 - 匹配网站和邮件模板
 const COLORS = {
-  primary: "#1a5f7a",      // 深蓝绿色 - 专业、宁静
-  secondary: "#86c5d8",    // 浅蓝色 - 柔和
-  accent: "#e6956f",       // 珊瑚色 - 温暖、活力
-  gold: "#d4af37",         // 金色 - 高级感
-  text: "#2c3e50",         // 深灰色 - 文字
-  textLight: "#7f8c8d",    // 浅灰色 - 次要文字
-  background: "#f8f9fa",   // 浅灰背景
+  primary: "#667eea",         // 主紫色
+  primaryDark: "#764ba2",     // 深紫色（渐变用）
+  accent: "#10b981",          // 绿色 - 用于强调
+  gold: "#fbbf24",            // 金色 - 高级感
+  text: "#1f2937",            // 深灰色 - 文字
+  textLight: "#6b7280",       // 浅灰色 - 次要文字
+  background: "#f9fafb",      // 浅灰背景
   white: "#ffffff",
+  border: "#e5e7eb",
 };
 
 const styles = StyleSheet.create({
@@ -19,194 +20,240 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     padding: 0,
   },
-  
-  // Header section with gradient effect (simulated)
+
+  // Header section
   header: {
     backgroundColor: COLORS.primary,
-    padding: 30,
-    paddingTop: 40,
-    paddingBottom: 40,
+    padding: 40,
+    paddingTop: 50,
+    paddingBottom: 50,
   },
-  
-  logoContainer: {
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  
+
   brandName: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: "bold",
     color: COLORS.white,
     textAlign: "center",
+    letterSpacing: 3,
+    marginBottom: 8,
+  },
+
+  tagline: {
+    fontSize: 13,
+    color: COLORS.white,
+    textAlign: "center",
+    opacity: 0.9,
+    letterSpacing: 1.5,
+  },
+
+  giftCardTitle: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: COLORS.white,
+    textAlign: "center",
+    marginTop: 24,
     letterSpacing: 2,
   },
-  
-  tagline: {
-    fontSize: 12,
-    color: COLORS.secondary,
-    textAlign: "center",
-    marginTop: 5,
-    letterSpacing: 1,
-  },
-  
-  // Gift card title
-  giftCardTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: COLORS.white,
-    textAlign: "center",
-    marginTop: 20,
-    letterSpacing: 1,
-  },
-  
+
   // Main content area
   contentContainer: {
     backgroundColor: COLORS.white,
     margin: 30,
-    marginTop: -20, // Overlap header slightly
-    padding: 40,
-    borderRadius: 8,
-    // Shadow effect (simulated with border)
+    marginTop: -25,
+    padding: 45,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: COLORS.border,
   },
-  
-  // Value display
+
+  // Value display - 紫色渐变效果
   valueContainer: {
-    backgroundColor: COLORS.accent,
-    padding: 20,
-    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    padding: 30,
+    borderRadius: 12,
     marginBottom: 30,
     alignItems: "center",
   },
-  
+
   valueLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.white,
-    marginBottom: 5,
-    letterSpacing: 1,
+    marginBottom: 8,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    opacity: 0.9,
   },
-  
+
   valueAmount: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: "bold",
     color: COLORS.white,
+    marginVertical: 8,
   },
-  
+
+  valueCurrency: {
+    fontSize: 14,
+    color: COLORS.white,
+    opacity: 0.9,
+    marginTop: 4,
+  },
+
+  validityText: {
+    fontSize: 12,
+    color: COLORS.white,
+    opacity: 0.85,
+    marginTop: 8,
+  },
+
   // Code section
   codeContainer: {
     backgroundColor: COLORS.background,
-    padding: 20,
-    borderRadius: 8,
-    marginBottom: 25,
+    padding: 24,
+    borderRadius: 10,
+    marginBottom: 30,
     alignItems: "center",
     borderWidth: 2,
     borderColor: COLORS.primary,
-    borderStyle: "dashed",
+    borderStyle: "solid",
   },
-  
+
   codeLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textLight,
-    marginBottom: 8,
-    letterSpacing: 1,
+    marginBottom: 10,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
-  
+
   code: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "bold",
     color: COLORS.primary,
-    letterSpacing: 3,
+    letterSpacing: 4,
   },
-  
+
   // Personal message section
   messageSection: {
-    marginBottom: 25,
-    padding: 20,
-    backgroundColor: "#f0f8ff",
-    borderRadius: 8,
+    marginBottom: 30,
+    padding: 24,
+    backgroundColor: "#faf5ff",
+    borderRadius: 10,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.secondary,
+    borderLeftColor: COLORS.primary,
   },
-  
+
   messageLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textLight,
-    marginBottom: 8,
+    marginBottom: 12,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
-  
+
   messageTo: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
-    marginBottom: 5,
+    marginBottom: 6,
+    fontWeight: "bold",
   },
-  
+
   messageFrom: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: 14,
+    fontWeight: "bold",
   },
-  
+
   messageText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.text,
     lineHeight: 1.6,
     fontStyle: "italic",
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  
+
   // Divider
   divider: {
     height: 1,
-    backgroundColor: "#e0e0e0",
-    marginVertical: 20,
+    backgroundColor: COLORS.border,
+    marginVertical: 25,
   },
-  
-  // Info rows
+
+  // Info section
+  infoSection: {
+    marginBottom: 30,
+  },
+
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
-    paddingHorizontal: 10,
+    marginBottom: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: 6,
   },
-  
+
   infoLabel: {
     fontSize: 12,
     color: COLORS.textLight,
   },
-  
+
   infoValue: {
     fontSize: 12,
     color: COLORS.text,
     fontWeight: "bold",
   },
-  
+
   // Redemption instructions
   instructionsSection: {
-    marginTop: 25,
-    padding: 20,
-    backgroundColor: "#fff9e6",
-    borderRadius: 8,
+    marginTop: 30,
+    padding: 24,
+    backgroundColor: "#fef3c7",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: COLORS.gold,
   },
-  
+
   instructionsTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: COLORS.text,
-    marginBottom: 10,
+    color: "#92400e",
+    marginBottom: 14,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
-  
+
   instructionItem: {
     fontSize: 11,
-    color: COLORS.text,
-    marginBottom: 6,
-    paddingLeft: 15,
+    color: "#92400e",
+    marginBottom: 8,
+    paddingLeft: 16,
+    lineHeight: 1.6,
+  },
+
+  redeemOption: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#fbbf24",
+  },
+
+  redeemTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#92400e",
+    marginBottom: 8,
+  },
+
+  redeemText: {
+    fontSize: 10,
+    color: "#92400e",
     lineHeight: 1.5,
   },
-  
+
   // Footer
   footer: {
     position: "absolute",
@@ -215,103 +262,85 @@ const styles = StyleSheet.create({
     right: 30,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: COLORS.border,
   },
-  
+
   footerText: {
     fontSize: 10,
     color: COLORS.textLight,
   },
-  
-  footerLink: {
+
+  footerWebsite: {
     fontSize: 10,
     color: COLORS.primary,
+    fontWeight: "bold",
   },
-  
-  // QR Code placeholder
-  qrCodeContainer: {
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  
-  qrCodePlaceholder: {
-    width: 120,
-    height: 120,
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  
-  qrCodeText: {
-    fontSize: 10,
-    color: COLORS.textLight,
-    marginTop: 8,
-    textAlign: "center",
+
+  // Icon text
+  iconText: {
+    fontSize: 24,
   },
 });
 
 export type GiftPdfProps = {
   value: number;             // 200 (CAD)
-  code: string;              // RJ-0CHY-0Y0Q
+  code: string;              // GIFT-ABC123
   recipient?: string | null;
   sender?: string | null;
   message?: string | null;
   expiresAt?: string | null; // ISO date string
   purchasedAt?: string;      // ISO date string
+  isGift?: boolean;
 };
 
 export function GiftCardPdfEnhanced(props: GiftPdfProps) {
-  const { value, code, recipient, sender, message, expiresAt, purchasedAt } = props;
-  
+  const { value, code, recipient, sender, message, expiresAt, purchasedAt, isGift } = props;
+
   // Format dates
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { 
-      year: "numeric", 
-      month: "long", 
-      day: "numeric" 
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
     });
   };
-  
+
   const expiryDate = formatDate(expiresAt);
-  const purchaseDate = formatDate(purchasedAt);
-  
+  const purchaseDate = formatDate(purchasedAt) || formatDate(new Date().toISOString());
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.brandName}>REJUVENESSENCE</Text>
-            <Text style={styles.tagline}>Medical Spa & Wellness</Text>
-          </View>
-          <Text style={styles.giftCardTitle}>Gift Card</Text>
+          <Text style={styles.brandName}>REJUVENESSENCE</Text>
+          <Text style={styles.tagline}>Medical Spa & Wellness</Text>
+          <Text style={styles.giftCardTitle}>🎁 Gift Card</Text>
         </View>
-        
+
         {/* Main Content */}
         <View style={styles.contentContainer}>
           {/* Value */}
           <View style={styles.valueContainer}>
-            <Text style={styles.valueLabel}>VALUE</Text>
-            <Text style={styles.valueAmount}>${value}.00</Text>
-            <Text style={styles.valueLabel}>CAD</Text>
+            <Text style={styles.valueLabel}>Gift Card Value</Text>
+            <Text style={styles.valueAmount}>${value.toFixed(2)}</Text>
+            <Text style={styles.valueCurrency}>CAD</Text>
+            <Text style={styles.validityText}>Valid for 2 years</Text>
           </View>
-          
+
           {/* Gift Card Code */}
           <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>GIFT CARD CODE</Text>
+            <Text style={styles.codeLabel}>Your Gift Card Code</Text>
             <Text style={styles.code}>{code}</Text>
           </View>
-          
-          {/* Personal Message */}
-          {(recipient || sender || message) && (
+
+          {/* Personal Message - Only if it's a gift */}
+          {isGift && (recipient || sender || message) && (
             <View style={styles.messageSection}>
               <Text style={styles.messageLabel}>Personal Message</Text>
               {recipient && (
@@ -325,67 +354,62 @@ export function GiftCardPdfEnhanced(props: GiftPdfProps) {
               )}
             </View>
           )}
-          
+
           {/* Divider */}
           <View style={styles.divider} />
-          
+
           {/* Gift Card Details */}
-          <View>
-            {purchaseDate && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Purchased:</Text>
-                <Text style={styles.infoValue}>{purchaseDate}</Text>
-              </View>
-            )}
+          <View style={styles.infoSection}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Purchased</Text>
+              <Text style={styles.infoValue}>{purchaseDate}</Text>
+            </View>
             {expiryDate && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Expires:</Text>
+                <Text style={styles.infoLabel}>Expires</Text>
                 <Text style={styles.infoValue}>{expiryDate}</Text>
               </View>
             )}
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Redemptions:</Text>
-              <Text style={styles.infoValue}>Single or Multiple</Text>
+              <Text style={styles.infoLabel}>Partial Use</Text>
+              <Text style={styles.infoValue}>Allowed</Text>
             </View>
           </View>
-          
-          {/* QR Code Placeholder */}
-          <View style={styles.qrCodeContainer}>
-            <View style={styles.qrCodePlaceholder}>
-              <Text style={{ fontSize: 40, color: COLORS.primary }}>QR</Text>
-            </View>
-            <Text style={styles.qrCodeText}>
-              Scan to redeem or visit:{"\n"}
-              rejuvenessence.org/redeem
-            </Text>
-          </View>
-          
+
           {/* Redemption Instructions */}
           <View style={styles.instructionsSection}>
-            <Text style={styles.instructionsTitle}>How to Redeem</Text>
+            <Text style={styles.instructionsTitle}>How to Use Your Gift Card</Text>
+
             <Text style={styles.instructionItem}>
-              • Visit rejuvenessence.org/redeem and enter your code
+              • Present this PDF or your gift card code at our location
             </Text>
             <Text style={styles.instructionItem}>
-              • Choose to save to your wallet or use immediately
+              • Valid for any spa service or treatment
             </Text>
             <Text style={styles.instructionItem}>
-              • Book your service and apply your gift card at checkout
+              • Unused balance remains on your card for future visits
             </Text>
             <Text style={styles.instructionItem}>
-              • Unused balance remains on your gift card
+              • Can be combined with other promotions
             </Text>
+
+            <View style={styles.redeemOption}>
+              <Text style={styles.redeemTitle}>💰 Redeem Online</Text>
+              <Text style={styles.redeemText}>
+                Visit rejuvenessence.org/redeem to add funds to your wallet {"\n"}
+                and book online with ease. Your balance never expires!
+              </Text>
+            </View>
           </View>
         </View>
-        
+
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Rejuvenessence Medical Spa & Wellness
-          </Text>
-          <Text style={styles.footerLink}>
-            rejuvenessence.org
-          </Text>
+          <View>
+            <Text style={styles.footerText}>281 Parkwood Ave, Keswick, ON L4P 2X4</Text>
+            <Text style={styles.footerText}>booking@nesses.ca</Text>
+          </View>
+          <Text style={styles.footerWebsite}>rejuvenessence.org</Text>
         </View>
       </Page>
     </Document>
@@ -393,39 +417,15 @@ export function GiftCardPdfEnhanced(props: GiftPdfProps) {
 }
 
 // Export function to generate PDF buffer
-export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<Uint8Array> {
+export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<Buffer> {
   const instance = pdf(<GiftCardPdfEnhanced {...p} />);
-  
+
   try {
-    // Method 1: Use toBlob (works in both browser and Node.js)
-    const blob = await instance.toBlob();
-    const arrayBuffer = await blob.arrayBuffer();
-    
-    // Convert to Uint8Array (avoids SharedArrayBuffer issues)
-    return new Uint8Array(arrayBuffer);
-
+    // Generate the PDF buffer
+    const buffer = await instance.toBuffer();
+    return buffer;
   } catch (err) {
-    console.error("Error using toBlob, trying toBuffer:", err);
-    
-    // Method 2: Fallback to toBuffer (Node.js)
-    try {
-      const result = await instance.toBuffer();
-      
-      // Ensure we return Uint8Array
-      if (result instanceof Uint8Array) {
-        return result;
-      }
-      
-      // Convert other buffer types to Uint8Array
-      if (result instanceof ArrayBuffer) {
-        return new Uint8Array(result);
-      }
-      
-      throw new Error("toBuffer did not return a valid buffer type");
-
-    } catch (bufferErr) {
-      console.error("Error using toBuffer:", bufferErr);
-      throw new Error("Failed to generate PDF buffer");
-    }
+    console.error("Error generating PDF buffer:", err);
+    throw new Error("Failed to generate PDF buffer");
   }
 }
