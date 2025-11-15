@@ -65,7 +65,7 @@ export default async function RedeemPage({ params }: RedeemPageProps) {
               </svg>
             </div>
             <h2 className="text-3xl font-light text-slate-900 mb-2">
-              You've Received a Gift Card!
+              You&apos;ve Received a Gift Card!
             </h2>
             <p className="text-slate-600">
               Follow the steps below to redeem your gift card

@@ -1,11 +1,11 @@
 // app/giftcard/purchase/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 type GiftCardForm = {
+  id: string;
   amount: number;
   // 收件人信息（如果是礼物）
   recipient_email: string;
@@ -15,17 +15,27 @@ type GiftCardForm = {
   isGift: boolean;
 };
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const createCard = (): GiftCardForm => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  amount: 1,
+  recipient_email: "",
+  recipient_name: "",
+  message: "",
+  isGift: false,
+});
+const senderFieldKeys = {
+  name: "sender-name",
+  email: "sender-email",
+  phone: "sender-phone",
+} as const;
+const getCardFieldKey = (
+  cardId: string,
+  field: "amount" | "recipient_name" | "recipient_email",
+) => `card-${cardId}-${field}`;
+
 export default function PurchaseGiftCardPage() {
-  const router = useRouter();
-  const [cards, setCards] = useState<GiftCardForm[]>([
-    {
-      amount: 1,
-      recipient_email: "",
-      recipient_name: "",
-      message: "",
-      isGift: false,
-    },
-  ]);
+  const [cards, setCards] = useState<GiftCardForm[]>([createCard()]);
   
   // 购买人信息（发送人）
   const [senderName, setSenderName] = useState("");
@@ -34,7 +44,14 @@ export default function PurchaseGiftCardPage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Predefined amounts
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  const touchField = (key: string) =>
+    setTouchedFields((prev) => ({ ...prev, [key]: true }));
+  const showFieldError = (key: string, error: string) =>
+    (touchedFields[key] || submitAttempted) && error ? error : "";
+
   const presetAmounts = [1, 150, 200, 300, 500, 1000];
 
   // Add a new card
@@ -43,16 +60,7 @@ export default function PurchaseGiftCardPage() {
       toast.error("Maximum 50 gift cards per purchase");
       return;
     }
-    setCards([
-      ...cards,
-      {
-        amount: 1,
-        recipient_email: "",
-        recipient_name: "",
-        message: "",
-        isGift: false,
-      },
-    ]);
+    setCards((prev) => [...prev, createCard()]);
   };
 
   // Remove a card
@@ -61,65 +69,75 @@ export default function PurchaseGiftCardPage() {
       toast.error("Must have at least one gift card");
       return;
     }
-    setCards(cards.filter((_, i) => i !== index));
+    const cardId = cards[index]?.id;
+    setCards((prev) => prev.filter((_, i) => i !== index));
+    if (cardId) {
+      setTouchedFields((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((key) => {
+          if (key.startsWith(`card-${cardId}`)) delete next[key];
+        });
+        return next;
+      });
+    }
   };
 
   // Update a card field
-  const updateCard = (index: number, field: keyof GiftCardForm, value: string | number | boolean) => {
-    const newCards = [...cards];
-    newCards[index] = { ...newCards[index], [field]: value };
-    setCards(newCards);
+  const updateCard = (
+    index: number,
+    field: keyof GiftCardForm,
+    value: string | number | boolean,
+  ) => {
+    setCards((prev) => {
+      const newCards = [...prev];
+      newCards[index] = { ...newCards[index], [field]: value };
+      return newCards;
+    });
   };
 
   // Calculate total
   const total = cards.reduce((sum, card) => sum + card.amount, 0);
 
+  const senderErrors = useMemo(
+    () => ({
+      name: senderName.trim() ? "" : "Please enter your name.",
+      email: emailRegex.test(senderEmail) ? "" : "Enter a valid email address.",
+      phone: senderPhone.trim().length >= 7 ? "" : "Phone number is required.",
+    }),
+    [senderName, senderEmail, senderPhone],
+  );
+
+  const cardErrors = useMemo(
+    () =>
+      cards.map((card) => ({
+        amount:
+          card.amount >= 1 && card.amount <= 10000
+            ? ""
+            : "Amount must be between $1 and $10,000.",
+        recipient_name:
+          card.isGift && !card.recipient_name.trim()
+            ? "Recipient name is required for gifts."
+            : "",
+        recipient_email:
+          card.isGift && !emailRegex.test(card.recipient_email)
+            ? "Recipient email must be valid."
+            : "",
+      })),
+    [cards],
+  );
+
+  const formHasErrors = useMemo(() => {
+    if (Object.values(senderErrors).some(Boolean)) return true;
+    return cardErrors.some((errors) => Object.values(errors).some(Boolean));
+  }, [senderErrors, cardErrors]);
+
   // Validate form
   const validateForm = (): boolean => {
-    // Validate sender info
-    if (!senderName.trim()) {
-      toast.error("Please enter your name");
+    setSubmitAttempted(true);
+    if (formHasErrors) {
+      toast.error("Please fix the highlighted fields.");
       return false;
     }
-    
-    if (!senderEmail || !senderEmail.includes("@")) {
-      toast.error("Please enter a valid email");
-      return false;
-    }
-    
-    if (!senderPhone.trim()) {
-      toast.error("Please enter your phone number");
-      return false;
-    }
-
-    // Validate each card
-    for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
-
-      if (card.amount < 1) {
-        toast.error(`Card ${i + 1}: Minimum amount is $1`);
-        return false;
-      }
-
-      if (card.amount > 10000) {
-        toast.error(`Card ${i + 1}: Maximum amount is $10,000`);
-        return false;
-      }
-      
-      // If it's a gift, recipient info is required
-      if (card.isGift) {
-        if (!card.recipient_name.trim()) {
-          toast.error(`Card ${i + 1}: Recipient name is required for gifts`);
-          return false;
-        }
-        
-        if (!card.recipient_email || !card.recipient_email.includes("@")) {
-          toast.error(`Card ${i + 1}: Valid recipient email is required for gifts`);
-          return false;
-        }
-      }
-    }
-
     return true;
   };
 
@@ -133,12 +151,12 @@ export default function PurchaseGiftCardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cards: cards.map(card => ({
-            amount: card.amount,
-            recipient_email: card.isGift ? card.recipient_email : "",
-            recipient_name: card.isGift ? card.recipient_name : "",
-            message: card.isGift ? card.message : "",
-            is_gift: card.isGift,
+          cards: cards.map(({ amount, recipient_email, recipient_name, message, isGift }) => ({
+            amount,
+            recipient_email: isGift ? recipient_email : "",
+            recipient_name: isGift ? recipient_name : "",
+            message: isGift ? message : "",
+            is_gift: isGift,
           })),
           sender_name: senderName,
           sender_email: senderEmail,
@@ -193,180 +211,281 @@ export default function PurchaseGiftCardPage() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={senderFieldKeys.name}>
                 Your Name *
               </label>
               <input
+                id={senderFieldKeys.name}
                 type="text"
                 value={senderName}
                 onChange={(e) => setSenderName(e.target.value)}
+                onBlur={() => touchField(senderFieldKeys.name)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="John Doe"
                 required
+                autoComplete="name"
+                aria-invalid={Boolean(showFieldError(senderFieldKeys.name, senderErrors.name))}
+                aria-describedby={
+                  showFieldError(senderFieldKeys.name, senderErrors.name)
+                    ? `${senderFieldKeys.name}-error`
+                    : undefined
+                }
               />
+              {showFieldError(senderFieldKeys.name, senderErrors.name) && (
+                <p id={`${senderFieldKeys.name}-error`} className="mt-1 text-sm text-red-600">
+                  {showFieldError(senderFieldKeys.name, senderErrors.name)}
+                </p>
+              )}
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={senderFieldKeys.email}>
                 Your Email *
               </label>
               <input
+                id={senderFieldKeys.email}
                 type="email"
                 value={senderEmail}
                 onChange={(e) => setSenderEmail(e.target.value)}
+                onBlur={() => touchField(senderFieldKeys.email)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="your@email.com"
                 required
+                autoComplete="email"
+                inputMode="email"
+                aria-invalid={Boolean(showFieldError(senderFieldKeys.email, senderErrors.email))}
+                aria-describedby={
+                  showFieldError(senderFieldKeys.email, senderErrors.email)
+                    ? `${senderFieldKeys.email}-error`
+                    : undefined
+                }
               />
+              {showFieldError(senderFieldKeys.email, senderErrors.email) && (
+                <p id={`${senderFieldKeys.email}-error`} className="mt-1 text-sm text-red-600">
+                  {showFieldError(senderFieldKeys.email, senderErrors.email)}
+                </p>
+              )}
             </div>
             
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={senderFieldKeys.phone}>
                 Your Phone Number *
               </label>
               <input
+                id={senderFieldKeys.phone}
                 type="tel"
                 value={senderPhone}
                 onChange={(e) => setSenderPhone(e.target.value)}
+                onBlur={() => touchField(senderFieldKeys.phone)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="+1 (416) 123-4567"
                 required
+                autoComplete="tel"
+                inputMode="tel"
+                aria-invalid={Boolean(showFieldError(senderFieldKeys.phone, senderErrors.phone))}
+                aria-describedby={
+                  showFieldError(senderFieldKeys.phone, senderErrors.phone)
+                    ? `${senderFieldKeys.phone}-error`
+                    : undefined
+                }
               />
+              {showFieldError(senderFieldKeys.phone, senderErrors.phone) && (
+                <p id={`${senderFieldKeys.phone}-error`} className="mt-1 text-sm text-red-600">
+                  {showFieldError(senderFieldKeys.phone, senderErrors.phone)}
+                </p>
+              )}
             </div>
           </div>
           <p className="text-sm text-gray-500 mt-3">
-            We'll send the gift card(s) and receipt to this email
+            We&apos;ll send the gift card(s) and receipt to this email
           </p>
         </div>
 
         {/* Cards Section */}
         <div className="space-y-6 mb-8">
-          {cards.map((card, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-xl shadow-md p-6 border-2 border-gray-100 hover:border-indigo-200 transition-colors"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Gift Card #{index + 1}
-                </h3>
-                {cards.length > 1 && (
-                  <button
-                    onClick={() => removeCard(index)}
-                    className="text-red-500 hover:text-red-700 font-medium"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
+          {cards.map((card, index) => {
+            const errorsForCard = cardErrors[index] || {
+              amount: "",
+              recipient_email: "",
+              recipient_name: "",
+            };
+            const amountKey = getCardFieldKey(card.id, "amount");
+            const recipientNameKey = getCardFieldKey(card.id, "recipient_name");
+            const recipientEmailKey = getCardFieldKey(card.id, "recipient_email");
+            const amountError = showFieldError(amountKey, errorsForCard.amount);
+            const recipientNameError = showFieldError(
+              recipientNameKey,
+              errorsForCard.recipient_name,
+            );
+            const recipientEmailError = showFieldError(
+              recipientEmailKey,
+              errorsForCard.recipient_email,
+            );
 
-              <div className="grid grid-cols-1 gap-4">
-                {/* Amount */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount (CAD) *
-                  </label>
-                  <div className="flex gap-2 mb-3 flex-wrap">
-                    {presetAmounts.map((amount) => (
-                      <button
-                        key={amount}
-                        onClick={() => updateCard(index, "amount", amount)}
-                        className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                          card.amount === amount
-                            ? "bg-indigo-500 text-white border-indigo-500"
-                            : "bg-white text-gray-700 border-gray-300 hover:border-indigo-300"
-                        }`}
-                      >
-                        ${amount}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="number"
-                    value={card.amount}
-                    onChange={(e) => updateCard(index, "amount", parseInt(e.target.value) || 1)}
-                    min={1}
-                    max={10000}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Custom amount (min $1)"
-                  />
+            return (
+              <div
+                key={card.id}
+                className="bg-white rounded-xl shadow-md p-6 border-2 border-gray-100 hover:border-indigo-200 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Gift Card #{index + 1}
+                  </h3>
+                  {cards.length > 1 && (
+                    <button
+                      onClick={() => removeCard(index)}
+                      className="text-red-500 hover:text-red-700 font-medium"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
 
-                {/* Is Gift Checkbox */}
-                <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                  <input
-                    type="checkbox"
-                    id={`isGift-${index}`}
-                    checked={card.isGift}
-                    onChange={(e) => updateCard(index, "isGift", e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <label 
-                    htmlFor={`isGift-${index}`}
-                    className="text-sm font-medium text-gray-900 cursor-pointer"
-                  >
-                    💝 This is a gift for someone else
-                  </label>
-                </div>
-
-                {/* Recipient Info (only show if isGift) */}
-                {card.isGift && (
-                  <div className="border-l-4 border-indigo-500 pl-4 space-y-4">
-                    <p className="text-sm font-medium text-indigo-700 mb-3">
-                      Recipient Information
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Recipient Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={card.recipient_name}
-                          onChange={(e) => updateCard(index, "recipient_name", e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          placeholder="Jane Doe"
-                          required={card.isGift}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Recipient Email *
-                        </label>
-                        <input
-                          type="email"
-                          value={card.recipient_email}
-                          onChange={(e) => updateCard(index, "recipient_email", e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          placeholder="friend@example.com"
-                          required={card.isGift}
-                        />
-                      </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={amountKey}>
+                      Amount (CAD) *
+                    </label>
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {presetAmounts.map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => {
+                            updateCard(index, "amount", amount);
+                            touchField(amountKey);
+                          }}
+                          className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
+                            card.amount === amount
+                              ? "bg-indigo-500 text-white border-indigo-500"
+                              : "bg-white text-gray-700 border-gray-300 hover:border-indigo-300"
+                          }`}
+                        >
+                          ${amount}
+                        </button>
+                      ))}
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Personal Message (Optional)
-                      </label>
-                      <textarea
-                        value={card.message}
-                        onChange={(e) => updateCard(index, "message", e.target.value)}
-                        rows={3}
-                        maxLength={200}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                        placeholder="Wishing you relaxation and rejuvenation..."
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {card.message.length}/200 characters
+                    <input
+                      id={amountKey}
+                      type="number"
+                      value={card.amount}
+                      onChange={(e) =>
+                        updateCard(index, "amount", parseInt(e.target.value, 10) || 1)
+                      }
+                      onBlur={() => touchField(amountKey)}
+                      min={1}
+                      max={10000}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Custom amount (min $1)"
+                      aria-invalid={Boolean(amountError)}
+                      aria-describedby={amountError ? `${amountKey}-error` : undefined}
+                    />
+                    {amountError && (
+                      <p id={`${amountKey}-error`} className="mt-1 text-sm text-red-600">
+                        {amountError}
                       </p>
-                    </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Is Gift Checkbox */}
+                  <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <input
+                      type="checkbox"
+                      id={`isGift-${card.id}`}
+                      checked={card.isGift}
+                      onChange={(e) => updateCard(index, "isGift", e.target.checked)}
+                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <label 
+                      htmlFor={`isGift-${card.id}`}
+                      className="text-sm font-medium text-gray-900 cursor-pointer"
+                    >
+                      💝 This is a gift for someone else
+                    </label>
+                  </div>
+
+                  {/* Recipient Info (only show if isGift) */}
+                  {card.isGift && (
+                    <div className="border-l-4 border-indigo-500 pl-4 space-y-4">
+                      <p className="text-sm font-medium text-indigo-700 mb-3">
+                        Recipient Information
+                      </p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={recipientNameKey}>
+                            Recipient Name *
+                          </label>
+                          <input
+                            id={recipientNameKey}
+                            type="text"
+                            value={card.recipient_name}
+                            onChange={(e) => updateCard(index, "recipient_name", e.target.value)}
+                            onBlur={() => touchField(recipientNameKey)}
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Jane Doe"
+                            required={card.isGift}
+                            aria-invalid={Boolean(recipientNameError)}
+                            aria-describedby={
+                              recipientNameError ? `${recipientNameKey}-error` : undefined
+                            }
+                          />
+                          {recipientNameError && (
+                            <p id={`${recipientNameKey}-error`} className="mt-1 text-sm text-red-600">
+                              {recipientNameError}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={recipientEmailKey}>
+                            Recipient Email *
+                          </label>
+                          <input
+                            id={recipientEmailKey}
+                            type="email"
+                            value={card.recipient_email}
+                            onChange={(e) => updateCard(index, "recipient_email", e.target.value)}
+                            onBlur={() => touchField(recipientEmailKey)}
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="friend@example.com"
+                            required={card.isGift}
+                            aria-invalid={Boolean(recipientEmailError)}
+                            aria-describedby={
+                              recipientEmailError ? `${recipientEmailKey}-error` : undefined
+                            }
+                          />
+                          {recipientEmailError && (
+                            <p id={`${recipientEmailKey}-error`} className="mt-1 text-sm text-red-600">
+                              {recipientEmailError}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Personal Message (Optional)
+                        </label>
+                        <textarea
+                          value={card.message}
+                          onChange={(e) => updateCard(index, "message", e.target.value)}
+                          rows={3}
+                          maxLength={200}
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                          placeholder="Wishing you relaxation and rejuvenation..."
+                          onBlur={() => touchField(`card-${card.id}-message`)}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {card.message.length}/200 characters
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Add Card Button */}
           {cards.length < 50 && (
@@ -380,7 +499,7 @@ export default function PurchaseGiftCardPage() {
         </div>
 
         {/* Summary */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 mb-8 text-white">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 mb-6 text-white">
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-medium">Total Gift Cards:</span>
             <span className="text-2xl font-bold">{cards.length}</span>
@@ -403,6 +522,19 @@ export default function PurchaseGiftCardPage() {
               <span className="text-3xl font-bold">${total.toFixed(2)} CAD</span>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 mb-8">
+          <p className="font-semibold">Before you proceed to payment</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Confirm the CAD amount, especially for custom values or large orders.</li>
+            <li>Double-check recipient names and emails if you selected the gift option.</li>
+            <li>Payments are processed securely via Stripe Canada; you will see a confirmation step before authorizing.</li>
+            <li>Digital cards are issued instantly, so corrections require contacting support.</li>
+          </ul>
+          <p className="mt-2">
+            These steps keep us aligned with FINTRAC and provincial consumer protection guidelines for prepaid products.
+          </p>
         </div>
 
         {/* Purchase Button */}

@@ -167,7 +167,7 @@ export default function EmailVerification({
                 />
               </svg>
               <p>
-                We'll verify your email and check if you have an existing
+                We&apos;ll verify your email and check if you have an existing
                 account
               </p>
             </div>

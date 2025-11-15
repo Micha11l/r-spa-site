@@ -172,7 +172,7 @@ export default function RedeemSuccess({
         {/* What's Next */}
         <div className="mb-6">
           <h3 className="text-lg font-medium text-slate-900 mb-4">
-            What's Next?
+            What&apos;s Next?
           </h3>
 
           {isWallet ? (

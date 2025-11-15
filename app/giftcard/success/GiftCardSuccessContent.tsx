@@ -203,7 +203,7 @@ export default function GiftCardSuccessPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-blue-700">
-                    <strong>What's next?</strong> Gift cards will be sent via email with PDF attachments and redemption links. 
+                    <strong>What&apos;s next?</strong> Gift cards will be sent via email with PDF attachments and redemption links.
                     This may take a few minutes.
                   </p>
                 </div>

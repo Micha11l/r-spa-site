@@ -1,6 +1,6 @@
 // app/page.tsx
+import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import Hero from "@/components/Hero";
 import Gallery from "@/components/Gallery";
 import Section from "@/components/Section";
@@ -14,6 +14,42 @@ const LICENSES = [
   "/licenses/5.jpg",
   "/licenses/6.jpg",
 ];
+const HOME_DESCRIPTION =
+  "Private med spa, therapies, sauna, and Seqex technology in Keswick serving the Greater Toronto Area. Book personalized treatments, bistro add-ons, and wellness experiences daily from 9am–8pm.";
+
+export const metadata: Metadata = {
+  title: "Rejuvenessence | Med, Spa & Wellness Studio in Keswick",
+  description: HOME_DESCRIPTION,
+  keywords: [
+    "Keswick spa",
+    "Seqex treatment Toronto",
+    "ICR therapy Canada",
+    "private wellness studio",
+    "sauna and hot tub rentals",
+    "med spa near me",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Rejuvenessence | Med, Spa & Wellness Studio",
+    description: HOME_DESCRIPTION,
+    url: "/",
+    type: "website",
+    images: [
+      {
+        url: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        alt: "Rejuvenessence spa interior",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rejuvenessence Med & Spa",
+    description: HOME_DESCRIPTION,
+    images: ["/hero.jpg"],
+  },
+};
 
 export default function HomePage() {
   return (
