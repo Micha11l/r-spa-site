@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import RedeemFlow from '@/components/redeem/RedeemFlow';
 import { validateRedemptionToken } from '@/lib/giftcard/validation';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export const metadata: Metadata = {
   title: 'Redeem Gift Card | Rejuvenessence',
   description: 'Redeem your Rejuvenessence gift card',
