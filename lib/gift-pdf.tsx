@@ -434,14 +434,32 @@ export function GiftCardPdfEnhanced(props: GiftPdfProps) {
 
 // Export function to generate PDF buffer
 export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<Buffer> {
-  const instance = pdf(<GiftCardPdfEnhanced {...p} />);
-
   try {
+    // Validate input props
+    if (!p.code || !p.value) {
+      throw new Error("Missing required props: code and value are required");
+    }
+
+    // Create PDF document
+    const instance = pdf(<GiftCardPdfEnhanced {...p} />);
+
     // Generate the PDF buffer
     const buffer = await instance.toBuffer();
+
+    // Validate buffer
+    if (!buffer || buffer.length === 0) {
+      console.error("PDF rendering returned empty buffer for:", p);
+      throw new Error("PDF rendering failed - empty buffer returned");
+    }
+
+    console.log(`[PDF] Successfully generated PDF buffer: ${buffer.length} bytes for code ${p.code}`);
     return buffer;
-  } catch (err) {
-    console.error("Error generating PDF buffer:", err);
-    throw new Error("Failed to generate PDF buffer");
+  } catch (err: any) {
+    console.error("[PDF] Error generating PDF buffer:", {
+      error: err.message,
+      stack: err.stack,
+      props: p,
+    });
+    throw new Error(`Failed to generate PDF buffer: ${err.message}`);
   }
 }
