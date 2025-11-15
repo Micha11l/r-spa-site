@@ -35,7 +35,8 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     textAlign: "center",
     letterSpacing: 3,
-    marginBottom: 8,
+    marginBottom: 12,
+    lineHeight: 1.4,
   },
 
   tagline: {
@@ -44,6 +45,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.9,
     letterSpacing: 1.5,
+    lineHeight: 1.6,
   },
 
   giftCardTitle: {
@@ -53,6 +55,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 24,
     letterSpacing: 2,
+    lineHeight: 1.4,
   },
 
   // Main content area
@@ -78,24 +81,27 @@ const styles = StyleSheet.create({
   valueLabel: {
     fontSize: 13,
     color: COLORS.white,
-    marginBottom: 8,
+    marginBottom: 10,
     letterSpacing: 2,
     textTransform: "uppercase",
     opacity: 0.9,
+    lineHeight: 1.5,
   },
 
   valueAmount: {
     fontSize: 56,
     fontWeight: "bold",
     color: COLORS.white,
-    marginVertical: 8,
+    marginVertical: 12,
+    lineHeight: 1.2,
   },
 
   valueCurrency: {
     fontSize: 14,
     color: COLORS.white,
     opacity: 0.9,
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 1.5,
   },
 
   validityText: {
@@ -120,9 +126,10 @@ const styles = StyleSheet.create({
   codeLabel: {
     fontSize: 11,
     color: COLORS.textLight,
-    marginBottom: 10,
+    marginBottom: 12,
     letterSpacing: 1.5,
     textTransform: "uppercase",
+    lineHeight: 1.5,
   },
 
   code: {
@@ -130,6 +137,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.primary,
     letterSpacing: 4,
+    lineHeight: 1.3,
   },
 
   // Personal message section
@@ -153,23 +161,25 @@ const styles = StyleSheet.create({
   messageTo: {
     fontSize: 15,
     color: COLORS.text,
-    marginBottom: 6,
+    marginBottom: 8,
     fontWeight: "bold",
+    lineHeight: 1.5,
   },
 
   messageFrom: {
     fontSize: 15,
     color: COLORS.text,
-    marginBottom: 14,
+    marginBottom: 16,
     fontWeight: "bold",
+    lineHeight: 1.5,
   },
 
   messageText: {
     fontSize: 13,
     color: COLORS.text,
-    lineHeight: 1.6,
+    lineHeight: 1.8,
     fontStyle: "italic",
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
@@ -189,8 +199,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 14,
-    paddingVertical: 10,
+    marginBottom: 16,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     backgroundColor: COLORS.background,
     borderRadius: 6,
@@ -199,12 +209,14 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     color: COLORS.textLight,
+    lineHeight: 1.5,
   },
 
   infoValue: {
     fontSize: 12,
     color: COLORS.text,
     fontWeight: "bold",
+    lineHeight: 1.5,
   },
 
   // Redemption instructions
@@ -221,17 +233,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     color: "#92400e",
-    marginBottom: 14,
+    marginBottom: 16,
     textTransform: "uppercase",
     letterSpacing: 1.2,
+    lineHeight: 1.5,
   },
 
   instructionItem: {
     fontSize: 11,
     color: "#92400e",
-    marginBottom: 8,
+    marginBottom: 10,
     paddingLeft: 16,
-    lineHeight: 1.6,
+    lineHeight: 1.8,
   },
 
   redeemOption: {
@@ -245,13 +258,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "#92400e",
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 1.5,
   },
 
   redeemText: {
     fontSize: 10,
     color: "#92400e",
-    lineHeight: 1.5,
+    lineHeight: 1.7,
   },
 
   // Footer
@@ -271,12 +285,14 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 10,
     color: COLORS.textLight,
+    lineHeight: 1.5,
   },
 
   footerWebsite: {
     fontSize: 10,
     color: COLORS.primary,
     fontWeight: "bold",
+    lineHeight: 1.5,
   },
 
   // Icon text

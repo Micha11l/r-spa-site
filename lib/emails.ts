@@ -290,7 +290,7 @@ export async function sendGiftCardEmail(params: {
   const amountFormatted = `$${amount.toFixed(2)} CAD`;
 
   // Build redeem URL
-  const redeemUrl = `${SITE_URL}/giftcard/redeem?token=${token}`;
+  const redeemUrl = `${SITE_URL}/redeem/${token}`;
 
   // Build email template
   const { subject, html } = buildEmailTemplate("gift_card_recipient", recipientName || "there", {
