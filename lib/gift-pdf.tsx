@@ -443,12 +443,15 @@ export async function renderGiftPdfBuffer(p: GiftPdfProps): Promise<Buffer> {
     // Create PDF document
     const instance = pdf(<GiftCardPdfEnhanced {...p} />);
 
-    // Generate the PDF buffer
-    const buffer = await instance.toBuffer();
+    // Generate the PDF buffer (returns Uint8Array in v4.x)
+    const arrayBuffer = await instance.toBuffer();
+
+    // Convert Uint8Array to Node.js Buffer
+    const buffer = Buffer.from(arrayBuffer);
 
     // Validate buffer
     if (!buffer || buffer.length === 0) {
-      console.error("PDF rendering returned empty buffer for:", p);
+      console.error("[PDF] Rendering returned empty buffer for:", p);
       throw new Error("PDF rendering failed - empty buffer returned");
     }
 
