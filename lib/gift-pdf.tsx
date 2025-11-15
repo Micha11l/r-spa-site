@@ -350,7 +350,7 @@ export function GiftCardPdfEnhanced(props: GiftPdfProps) {
                 <Text style={styles.messageFrom}>From: {sender}</Text>
               )}
               {message && (
-                <Text style={styles.messageText}>"{message}"</Text>
+                <Text style={styles.messageText}>&quot;{message}&quot;</Text>
               )}
             </View>
           )}

@@ -14,3 +14,6 @@ node_modules
 STRIPE_PRODUCTION_KEYS.txt
 VERCEL_ENV_QUICK_SETUP.txt
 VERCEL_ENV_CORRECTED.txt
+PRODUCTION_ERRORS_DIAGNOSIS.md
+safety_password.md
+logs_result.csv

@@ -29,14 +29,40 @@ export default function SignInForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 max-w-xl"
+      autoComplete="off"
+      aria-live="polite"
+    >
       <div>
-        <label className="block text-sm mb-1">Email</label>
-        <input className="w-full" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+        <label className="block text-sm mb-1" htmlFor="signin-email">
+          Email
+        </label>
+        <input
+          id="signin-email"
+          className="w-full"
+          type="email"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+          required
+          autoComplete="off"
+          inputMode="email"
+        />
       </div>
       <div>
-        <label className="block text-sm mb-1">Password</label>
-        <input className="w-full" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
+        <label className="block text-sm mb-1" htmlFor="signin-password">
+          Password
+        </label>
+        <input
+          id="signin-password"
+          className="w-full"
+          type="password"
+          value={password}
+          onChange={(e)=>setPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+        />
       </div>
 
       {error && <div className="text-sm text-red-600">{error}</div>}

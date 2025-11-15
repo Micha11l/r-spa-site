@@ -297,7 +297,7 @@ export default function AccountPage() {
         <section className="rounded-xl border bg-white p-6">
           <h2 className="text-xl font-semibold">Faster checkout</h2>
           <p className="mt-2 text-sm text-zinc-600">
-            Save your contact info. When you book, we'll prefill your details.
+            Save your contact info. When you book, we&apos;ll prefill your details.
           </p>
           <form onSubmit={saveProfile} className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
@@ -320,7 +320,7 @@ export default function AccountPage() {
             ))}
             <div className="md:col-span-2 flex items-center justify-between pt-4">
               <span className="text-sm text-zinc-600">
-                We'll also prefill your info during booking.
+                We&apos;ll also prefill your info during booking.
               </span>
               <button className="btn btn-primary" disabled={saving}>
                 {saving ? "Saving…" : "Save"}

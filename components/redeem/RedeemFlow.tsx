@@ -206,7 +206,7 @@ export default function RedeemFlow({ token, initialGiftCard }: RedeemFlowProps) 
               Ready to Redeem?
             </h3>
             <p className="text-slate-600 mb-6">
-              Click below to start the redemption process. You'll be able to
+              Click below to start the redemption process. You&apos;ll be able to
               choose how to use your gift card.
             </p>
 
@@ -325,7 +325,7 @@ export default function RedeemFlow({ token, initialGiftCard }: RedeemFlowProps) 
 
             <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                After logging in, you'll be brought back here to complete the redemption.
+                After logging in, you&apos;ll be brought back here to complete the redemption.
               </p>
             </div>
           </div>
@@ -404,7 +404,7 @@ export default function RedeemFlow({ token, initialGiftCard }: RedeemFlowProps) 
 
             <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                After creating your account, you'll be brought back here to complete the redemption.
+                After creating your account, you&apos;ll be brought back here to complete the redemption.
               </p>
             </div>
           </div>

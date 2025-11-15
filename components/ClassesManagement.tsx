@@ -261,7 +261,7 @@ export default function ClassesManagement() {
               }}
               className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
             >
-              Show today's classes
+              Show today&apos;s classes
             </button>
           </div>
         ) : (

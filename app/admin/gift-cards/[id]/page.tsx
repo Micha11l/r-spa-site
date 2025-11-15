@@ -191,7 +191,7 @@ export default function GiftCardDetailPage() {
                 {giftCard.message && (
                   <div className="pt-3 border-t border-purple-200">
                     <p className="text-sm text-purple-700 mb-1">Message:</p>
-                    <p className="text-sm text-purple-900 italic break-words">"{giftCard.message}"</p>
+                    <p className="text-sm text-purple-900 italic break-words">&quot;{giftCard.message}&quot;</p>
                   </div>
                 )}
               </div>
