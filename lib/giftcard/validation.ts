@@ -35,23 +35,38 @@ export async function validateRedemptionToken(
       .single();
 
     if (error || !giftCard) {
+      console.log('[Redeem] Gift card not found for token:', token.substring(0, 10) + '...');
       return {
         valid: false,
         error: 'Invalid or expired redemption link',
       };
     }
 
+    // Check if redemption token has expired (48 hours)
+    if (giftCard.token_expires_at) {
+      const tokenExpiresAt = new Date(giftCard.token_expires_at);
+      if (tokenExpiresAt < new Date()) {
+        console.log('[Redeem] Redemption token expired for code:', giftCard.code);
+        return {
+          valid: false,
+          error: 'This redemption link has expired. Please request a new one.',
+        };
+      }
+    }
+
     // Check if already redeemed
     if (giftCard.status === 'redeemed') {
+      console.log('[Redeem] Gift card already redeemed:', giftCard.code);
       return {
         valid: false,
         error: 'This gift card has already been redeemed',
       };
     }
 
-    // Check if expired
+    // Check if gift card expired (2 years)
     const expiresAt = new Date(giftCard.expires_at);
     if (expiresAt < new Date()) {
+      console.log('[Redeem] Gift card expired:', giftCard.code);
       // Update status to expired
       await supabase
         .from('gift_cards')
@@ -66,12 +81,14 @@ export async function validateRedemptionToken(
 
     // Check if activated
     if (giftCard.status !== 'active') {
+      console.log('[Redeem] Gift card not active, status:', giftCard.status);
       return {
         valid: false,
         error: 'This gift card is not yet activated',
       };
     }
 
+    console.log('[Redeem] Validation successful for code:', giftCard.code);
     return {
       valid: true,
       data: {
