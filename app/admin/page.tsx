@@ -82,12 +82,14 @@ export default function AdminPage() {
           bookingId: b.id,
         }),
       });
-  
-      const data = await res.json();
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to send email");
-  
-      await updateStatus(b.id, "awaiting_deposit");
-      toast.success("Deposit email sent!", { id: loadingId });
+
+      const message = data.messageId
+        ? `Deposit email sent! (id: ${data.messageId})`
+        : "Deposit email sent!";
+      toast.success(message, { id: loadingId });
       refreshPending();
     } catch (e: any) {
       toast.error(e.message || "Failed to send deposit email", { id: loadingId });

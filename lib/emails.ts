@@ -43,14 +43,23 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 // Existing Email Functions
 // =====================================================
 
-export async function sendDepositEmail(to: string, name: string, checkoutUrl: string) {
+export async function sendDepositEmail(to: string, name: string, checkoutUrl: string): Promise<{ messageId?: string }> {
   const { subject, html } = buildEmailTemplate("deposit", name, { checkoutUrl });
-  await resend.emails.send({
-    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+  const result = await resend.emails.send({
+    from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
     to,
     subject,
     html,
   });
+
+  if (result.error) {
+    console.error('[email][deposit] failed:', result.error);
+    throw new Error(result.error.message || 'Failed to send deposit email');
+  }
+
+  const messageId = result.data?.id || result.id;
+  console.log('[email][deposit] queued', { to, messageId });
+  return { messageId };
 }
 
 export async function sendRefuseEmail(to: string, name: string, reason?: string) {
