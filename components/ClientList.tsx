@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { Mail, Search } from "lucide-react";
+import ClientDetailDrawer from "./ClientDetailDrawer";
 
 type Client = {
   email: string;
@@ -34,6 +35,7 @@ export default function ClientList() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [isMobile, setIsMobile] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -186,7 +188,11 @@ export default function ClientList() {
             </thead>
             <tbody>
               {filteredClients.map((client) => (
-                <tr key={client.email} className="border-b hover:bg-zinc-50">
+                <tr
+                  key={client.email}
+                  onClick={() => setSelectedClient(client)}
+                  className="border-b hover:bg-zinc-50 cursor-pointer"
+                >
                   <td className="px-4 py-3">
                     <div>
                       <div>{client.name || "—"}</div>
@@ -229,7 +235,10 @@ export default function ClientList() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button
-                      onClick={() => sendPromo(client)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendPromo(client);
+                      }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-300 text-zinc-600 rounded-lg text-xs font-medium cursor-not-allowed"
                       title="Coming soon"
                     >
@@ -254,9 +263,10 @@ export default function ClientList() {
           {filteredClients.map((client) => (
             <motion.div
               key={client.email}
+              onClick={() => setSelectedClient(client)}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border rounded-lg p-4 space-y-2"
+              className="bg-white border rounded-lg p-4 space-y-2 cursor-pointer hover:border-emerald-300 transition"
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -309,7 +319,10 @@ export default function ClientList() {
               )}
 
               <button
-                onClick={() => sendPromo(client)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendPromo(client);
+                }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-300 text-zinc-600 rounded-lg text-sm font-medium cursor-not-allowed"
                 title="Coming soon"
               >
@@ -326,6 +339,13 @@ export default function ClientList() {
           )}
         </div>
       )}
+
+      <ClientDetailDrawer
+        open={!!selectedClient}
+        onClose={() => setSelectedClient(null)}
+        client={selectedClient}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
