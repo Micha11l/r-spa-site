@@ -57,7 +57,7 @@ export async function sendDepositEmail(to: string, name: string, checkoutUrl: st
     throw new Error(result.error.message || 'Failed to send deposit email');
   }
 
-  const messageId = result.data?.id || result.id;
+  const messageId = result.data?.id;
   console.log('[email][deposit] queued', { to, messageId });
   return { messageId };
 }

@@ -58,11 +58,27 @@ const createTouchedState = () => ({
 });
 type TouchedState = ReturnType<typeof createTouchedState>;
 
-export default function BookingForm() {
+type BookingFormProps = {
+  endpoint?: string;
+  initial?: Partial<FormState>;
+  onSuccess?: (data: any) => void;
+  submitLabel?: string;
+  hideHoneypot?: boolean;
+  compact?: boolean;
+};
+
+export default function BookingForm({
+  endpoint = "/api/book",
+  initial = {},
+  onSuccess,
+  submitLabel = "Confirm Appointment",
+  hideHoneypot = false,
+  compact = false,
+}: BookingFormProps) {
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(createInitialFormState());
+  const [form, setForm] = useState<FormState>({ ...createInitialFormState(), ...initial });
   const [touched, setTouched] = useState<TouchedState>(createTouchedState());
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -103,14 +119,20 @@ export default function BookingForm() {
       return;
     }
     try {
-      const res = await fetch("/api/book", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      setOk("Thank you! Your request has been received. We'll confirm by email shortly.");
+
+      if (onSuccess) {
+        onSuccess(data);
+      } else {
+        setOk("Thank you! Your request has been received. We'll confirm by email shortly.");
+      }
+
       setForm(createInitialFormState());
       setTouched(createTouchedState());
       setSubmitAttempted(false);
@@ -121,20 +143,24 @@ export default function BookingForm() {
     }
   }
 
+  const gapClass = compact ? "gap-3" : "gap-4";
+
   return (
-    <form onSubmit={submit} className="grid gap-4 max-w-xl" noValidate aria-live="polite">
+    <form onSubmit={submit} className={`grid ${gapClass} max-w-xl`} noValidate aria-live="polite">
       {/* 蜜罐（隐藏） */}
-      <div style={{ display: "none" }} aria-hidden="true">
-        <label htmlFor="booking-company">Company</label>
-        <input
-          id="booking-company"
-          type="text"
-          value={form.company || ""}
-          onChange={(e) => setForm({ ...form, company: e.target.value })}
-          tabIndex={-1}
-          autoComplete="off"
-        />
-      </div>
+      {!hideHoneypot && (
+        <div style={{ display: "none" }} aria-hidden="true">
+          <label htmlFor="booking-company">Company</label>
+          <input
+            id="booking-company"
+            type="text"
+            value={form.company || ""}
+            onChange={(e) => setForm({ ...form, company: e.target.value })}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+      )}
 
       <div>
         <label className="block text-sm mb-1" htmlFor="booking-service">
@@ -287,7 +313,7 @@ export default function BookingForm() {
       </div>
 
       <button className="btn btn-primary" disabled={loading}>
-        {loading ? "Submitting..." : "Confirm Appointment"}
+        {loading ? "Submitting..." : submitLabel}
       </button>
 
       {ok && <div className="text-green-600">{ok}</div>}

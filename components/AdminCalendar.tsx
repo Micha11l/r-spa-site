@@ -9,6 +9,8 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import BookingForm from "./BookingForm";
+import { X } from "lucide-react";
 
 type BookingEvent = {
   id: string;
@@ -29,6 +31,7 @@ type Props = {
 export default function AdminCalendar({ onEventClick }: Props) {
   const [events, setEvents] = useState<BookingEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // ✅ 监听窗口宽度
@@ -41,17 +44,18 @@ export default function AdminCalendar({ onEventClick }: Props) {
 
   // ✅ 获取数据
   useEffect(() => {
-    async function loadBookings() {
-      try {
-        const res = await fetch("/api/admin/bookings");
-        const data = await res.json();
-        setEvents(data || []);
-      } catch {
-        toast.error("Failed to load events");
-      }
-    }
     loadBookings();
   }, []);
+
+  async function loadBookings() {
+    try {
+      const res = await fetch("/api/admin/bookings");
+      const data = await res.json();
+      setEvents(data || []);
+    } catch {
+      toast.error("Failed to load events");
+    }
+  }
 
   // ✅ 格式化时间
   function formatTimeRange(start: string, end: string) {
@@ -67,6 +71,16 @@ export default function AdminCalendar({ onEventClick }: Props) {
 
   return (
     <div className="relative w-full">
+      {/* Toolbar with Add Appointment button */}
+      <div className={`mb-4 flex ${isMobile ? 'flex-col gap-2' : 'justify-end'}`}>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors`}
+        >
+          + Add Appointment
+        </button>
+      </div>
+
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
         initialView={isMobile ? "listWeek" : "dayGridMonth"}
@@ -108,11 +122,101 @@ export default function AdminCalendar({ onEventClick }: Props) {
         }}
       />
 
-      {/* ✅ 移动端底部滑出详情 */}
-{/* ✅ 移动端底部滑出详情 (新版) */}
-{/* ✅ 移动端底部滑出详情（带拖拽关闭） */}
-{/* ✅ 移动端底部滑出详情（带操作按钮 + 拖拽关闭） */}
-{typeof window !== "undefined" &&
+      {/* Add Appointment Modal */}
+      {typeof window !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {showAddModal && (
+              <>
+                <motion.div
+                  className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowAddModal(false)}
+                />
+
+                {isMobile ? (
+                  // Mobile: Bottom sheet
+                  <motion.div
+                    drag="y"
+                    dragConstraints={{ top: 0, bottom: 0 }}
+                    onDragEnd={(_, info) => {
+                      if (info.offset.y > 100) setShowAddModal(false);
+                    }}
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", stiffness: 240, damping: 25 }}
+                    className="fixed left-0 right-0 bottom-0 z-[9999]
+                               bg-white rounded-t-[2rem] shadow-xl
+                               p-6 max-h-[90vh] overflow-y-auto
+                               pb-[env(safe-area-inset-bottom)] touch-pan-y"
+                  >
+                    <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-zinc-300" />
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Add Appointment</h3>
+                      <button
+                        onClick={() => setShowAddModal(false)}
+                        className="p-1 hover:bg-zinc-100 rounded"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <BookingForm
+                      endpoint="/api/admin/bookings"
+                      submitLabel="Create Appointment"
+                      hideHoneypot={true}
+                      compact={true}
+                      onSuccess={(data) => {
+                        toast.success("Appointment created!");
+                        setShowAddModal(false);
+                        loadBookings();
+                      }}
+                    />
+                  </motion.div>
+                ) : (
+                  // Desktop: Centered modal
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) setShowAddModal(false);
+                    }}
+                  >
+                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold">Add Appointment</h3>
+                        <button
+                          onClick={() => setShowAddModal(false)}
+                          className="p-1 hover:bg-zinc-100 rounded"
+                        >
+                          <X size={24} />
+                        </button>
+                      </div>
+                      <BookingForm
+                        endpoint="/api/admin/bookings"
+                        submitLabel="Create Appointment"
+                        hideHoneypot={true}
+                        onSuccess={(data) => {
+                          toast.success("Appointment created!");
+                          setShowAddModal(false);
+                          loadBookings();
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* Event detail modal (existing) */}
+      {typeof window !== "undefined" &&
   createPortal(
     <AnimatePresence>
       {selectedEvent && isMobile && (
@@ -199,22 +303,21 @@ export default function AdminCalendar({ onEventClick }: Props) {
             to: selectedEvent.email,
             name: selectedEvent.name,
             checkoutUrl,
+            bookingId: selectedEvent.id,
           }),
         });
 
-        const msg = await res.text();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          throw new Error(msg || "Failed to send deposit email");
+          throw new Error(data.error || "Failed to send deposit email");
         }
 
-        await fetch("/api/admin/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: selectedEvent.id, status: "deposit-sent" }),
-        });
-
-        toast.success("✅ Deposit email sent!", { id: tId });
+        const message = data.messageId
+          ? `✅ Deposit email sent! (id: ${data.messageId})`
+          : "✅ Deposit email sent!";
+        toast.success(message, { id: tId });
+        loadBookings();
       } catch (e: any) {
         toast.error(`❌ ${e.message}`, { id: tId });
       } finally {
@@ -240,8 +343,8 @@ export default function AdminCalendar({ onEventClick }: Props) {
           }),
         });
 
-        const msg = await res.text();
-        if (!res.ok) throw new Error(msg || "Failed to send refusal email");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Failed to send refusal email");
 
         await fetch("/api/admin/update", {
           method: "POST",
@@ -250,6 +353,7 @@ export default function AdminCalendar({ onEventClick }: Props) {
         });
 
         toast.success("❌ Booking refused", { id: tId });
+        loadBookings();
       } catch (e: any) {
         toast.error(`⚠️ ${e.message}`, { id: tId });
       } finally {

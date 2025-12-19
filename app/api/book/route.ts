@@ -1,20 +1,11 @@
 // app/api/book/route.ts
-import customParse from "dayjs/plugin/customParseFormat";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import tz from "dayjs/plugin/timezone";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendBookingEmails } from "@/lib/emails";
-import { SERVICES, DURATIONS } from "@/lib/services";
-
-dayjs.extend(utc);
-dayjs.extend(tz);
-dayjs.extend(customParse);
+import { SERVICES } from "@/lib/services";
+import { createBooking } from "@/lib/bookings";
 
 export const runtime = "nodejs";
-const TZ = process.env.TIMEZONE || "America/Toronto";
 
 // --- very simple rate limit ---
 const RL_MAX = Number(process.env.RL_MAX || 5);
@@ -57,77 +48,34 @@ export async function POST(req: Request) {
 
     const data = schema.parse(body);
 
-    // 允许 2025/10/22 这类格式
-    const dateNorm = data.date.replace(/[./]/g, "-");
-
-    // 严格解析到本地时区
-    const startLocal = dayjs.tz(`${dateNorm} ${data.time}`, "YYYY-MM-DD HH:mm", TZ);
-    if (!startLocal.isValid()) {
-      return NextResponse.json({ error: "Invalid date/time" }, { status: 400 });
-    }
-
-    const minutes = DURATIONS[data.service] ?? 60;
-    const endLocal = startLocal.add(minutes, "minute");
-
-    const startISO = startLocal.utc().toISOString();
-    const endISO = endLocal.utc().toISOString();
-
-    // 冲突检测：start_at < endISO 且 end_at > startISO (边界相邻允许)
-    const { count: overlapCount, error: overlapErr } = await supabaseAdmin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .lt("start_at", endISO)
-      .gt("end_at", startISO)
-      .neq("status", "cancelled");
-
-    if (overlapErr) {
-      console.error("[/api/book] overlap check error:", overlapErr);
-      return NextResponse.json(
-        { error: `DB overlap error: ${overlapErr.message || overlapErr}` },
-        { status: 500 }
-      );
-    }
-    if ((overlapCount ?? 0) > 0) {
-      return NextResponse.json({ error: "time_taken" }, { status: 409 });
-    }
-
-    const row = {
-      service_name: data.service,
-      start_at: startISO,
-      end_at: endISO,
-      customer_name: data.name,
-      customer_email: data.email,
-      customer_phone: data.phone,
-      notes: data.notes || null,
-      status: "pending" as const,
-    };
-
-    let ins = await supabaseAdmin
-      .from("bookings")
-      .insert([row])
-      .select("id")
-      .single();
-
-    if (ins.error) {
-      console.error("[/api/book] insert error:", ins.error);
-      return NextResponse.json(
-        { error: `DB insert error: ${ins.error.message || ins.error}` },
-        { status: 500 }
-      );
-    }
-
-    // 邮件失败不影响下单
-    sendBookingEmails({
+    // Use shared booking creation logic
+    const result = await createBooking({
       service: data.service,
-      startISO,
-      endISO,
+      date: data.date,
+      time: data.time,
       name: data.name,
       email: data.email,
       phone: data.phone,
       notes: data.notes,
+    });
+
+    if (!result.success) {
+      const status = result.error === "time_taken" ? 409 : 400;
+      return NextResponse.json({ error: result.error }, { status });
+    }
+
+    // Send booking confirmation emails (non-blocking)
+    sendBookingEmails({
+      service: result.data!.service_name,
+      startISO: result.data!.start_at,
+      endISO: result.data!.end_at,
+      name: result.data!.customer_name,
+      email: result.data!.customer_email,
+      phone: result.data!.customer_phone,
+      notes: result.data!.notes || "",
     }).catch((e) => console.error("[/api/book] email error:", e));
 
-    return NextResponse.json({ ok: true, id: ins.data?.id });
+    return NextResponse.json({ ok: true, id: result.data!.id });
   } catch (e: any) {
     console.error("[/api/book] error:", e);
     const msg =

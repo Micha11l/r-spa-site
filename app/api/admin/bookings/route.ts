@@ -3,7 +3,11 @@ import { NextResponse, NextRequest } from "next/server";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
+import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createBooking } from "@/lib/bookings";
+import { sendBookingEmails } from "@/lib/emails";
+import { SERVICES } from "@/lib/services";
 
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -60,5 +64,75 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     console.error("[admin/bookings] error:", e);
     return NextResponse.json({ error: e.message || "server error" }, { status: 500 });
+  }
+}
+
+// Admin manual booking creation
+const schema = z.object({
+  service: z.enum(SERVICES),
+  date: z.string().min(8),
+  time: z.string().min(4),
+  name: z.string().min(2),
+  email: z.string().email(),
+  phone: z.string().min(6),
+  notes: z.string().optional().default(""),
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const sendEmail = searchParams.get("sendEmail") === "true";
+
+    const body = await req.json();
+    const data = schema.parse(body);
+
+    // Use shared booking creation logic
+    const result = await createBooking({
+      service: data.service,
+      date: data.date,
+      time: data.time,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      notes: data.notes,
+    });
+
+    if (!result.success) {
+      const status = result.error === "time_taken" ? 409 : 400;
+      return NextResponse.json({ error: result.error }, { status });
+    }
+
+    // Optionally send emails
+    if (sendEmail) {
+      sendBookingEmails({
+        service: result.data!.service_name,
+        startISO: result.data!.start_at,
+        endISO: result.data!.end_at,
+        name: result.data!.customer_name,
+        email: result.data!.customer_email,
+        phone: result.data!.customer_phone,
+        notes: result.data!.notes || "",
+      }).catch((e) => console.error("[admin/bookings POST] email error:", e));
+    }
+
+    // Return formatted event for calendar
+    return NextResponse.json({
+      ok: true,
+      event: {
+        id: result.data!.id,
+        title: result.data!.service_name,
+        start: result.data!.start_at,
+        end: result.data!.end_at,
+        status: result.data!.status,
+        name: result.data!.customer_name,
+        email: result.data!.customer_email,
+        phone: result.data!.customer_phone,
+        notes: result.data!.notes ?? "",
+      },
+    });
+  } catch (e: any) {
+    console.error("[admin/bookings POST] error:", e);
+    const msg = e?.issues ? JSON.stringify(e.issues) : e?.message || "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
