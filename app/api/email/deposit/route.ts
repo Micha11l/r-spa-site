@@ -5,7 +5,13 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
     const { to, name, checkoutUrl, bookingId } = body;
 
     if (!to || !name || !checkoutUrl || !bookingId) {
@@ -13,9 +19,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    await sendDepositEmail(to, name, checkoutUrl);
+    // Send email first
+    const { messageId } = await sendDepositEmail(to, name, checkoutUrl);
 
-    // ✅ 同步更新 Supabase 状态为 awaiting_deposit
+    // Update booking status (non-critical)
+    let bookingUpdated = false;
     const { error: updateError } = await supabaseAdmin
       .from("bookings")
       .update({ status: "awaiting_deposit" })
@@ -23,12 +31,14 @@ export async function POST(req: Request) {
 
     if (updateError) {
       console.warn("[email/deposit] Supabase update failed", updateError.message);
+    } else {
+      bookingUpdated = true;
     }
 
-    console.log(`[email/deposit] Sent to ${to}`);
-    return NextResponse.json({ success: true });
-  } catch (err) {
+    console.log(`[email/deposit] Sent to ${to}, messageId: ${messageId}`);
+    return NextResponse.json({ success: true, messageId, bookingUpdated });
+  } catch (err: any) {
     console.error("[email/deposit] failed:", err);
-    return NextResponse.json({ error: "Failed to send deposit email" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to send deposit email" }, { status: 500 });
   }
 }

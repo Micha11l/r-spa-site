@@ -162,7 +162,7 @@ function PayBooking({
           }}
           className="w-full mt-3 rounded-lg bg-black text-white py-2 font-medium hover:bg-zinc-800 disabled:opacity-50"
         >
-          {busy ? "Redirecting…" : "Pay 50% deposit"}
+          {busy ? "Redirecting…" : "Pay deposit"}
         </button>
       </div>
     </div>

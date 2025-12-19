@@ -29,7 +29,8 @@ export async function POST(req: Request) {
 
     // 价格兜底：若没设价格，先按 $100 做演示
     const priceCents = bk.price_cents && bk.price_cents > 0 ? bk.price_cents : 10000;
-    const depositCents = Math.round(priceCents * 0.5);
+    // Fixed deposit amount (no longer percentage-based)
+    const depositCents = Number(process.env.SECURITY_DEPOSIT_CAD || 75) * 100;
 
     // 更新状态为待付款
     await supabase
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
             unit_amount: depositCents,
             product_data: {
               name: `Deposit for ${bk.service_name}`,
-              description: `50% security deposit — ${bk.customer_name || ""}`.trim(),
+              description: `Security deposit — ${bk.customer_name || ""}`.trim(),
             },
           },
         },

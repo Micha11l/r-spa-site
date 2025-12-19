@@ -68,16 +68,17 @@ export function buildEmailTemplate(
   // 💰 Deposit email
   if (type === "deposit") {
     const { checkoutUrl } = data;
+    const depositAmount = process.env.SECURITY_DEPOSIT_CAD || '75';
     return {
       subject: "Confirm your booking with deposit",
       html: `
         ${commonHeader}
         <p>Your appointment has been approved! Please confirm your booking by paying the deposit below:</p>
         <p style="text-align:center; margin:32px 0;">
-          <a href="${checkoutUrl}" 
+          <a href="${checkoutUrl}"
             style="background:#10b981; color:#fff; padding:14px 28px;
             border-radius:8px; text-decoration:none; font-weight:600;">
-            Pay CA$50 Deposit
+            Pay CA$${depositAmount} Deposit
           </a>
         </p>
         <p style="color:#666;">This deposit is refundable up to 48h before your appointment.</p>
