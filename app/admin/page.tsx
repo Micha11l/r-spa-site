@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Home, LogOut, GraduationCap, Calendar as CalendarIcon, CreditCard, Users } from "lucide-react";
+import { CalendarDays, Home, LogOut, GraduationCap, CreditCard, Users } from "lucide-react";
 import AdminCalendar from "@/components/AdminCalendar";
 import ClassesManagement from "@/components/ClassesManagement";
 import GiftCardsManagement from "@/components/GiftCardsManagement";
@@ -26,23 +26,11 @@ type TabType = "bookings" | "classes" | "giftcards" | "clients";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("bookings");
-  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<Booking[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
     type: "deposit" | "refuse";
     booking: Booking;
   } | null>(null);
-
-  // 🔒 Prevent background scroll when mobile drawer open
-  useEffect(() => {
-    if (open) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [open]);
 
   // 📦 Load pending bookings
   useEffect(() => {
@@ -125,8 +113,6 @@ export default function AdminPage() {
     }
   }
 
-  const overlayVar = { hidden: { opacity: 0 }, show: { opacity: 1 }, exit: { opacity: 0 } };
-  const drawerVar = { hidden: { x: -280 }, show: { x: 0 }, exit: { x: -280 } };
   const modalVar = {
     hidden: { opacity: 0, scale: 0.9, y: 40 },
     show: {
@@ -209,147 +195,72 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="md:hidden fixed top-4 left-4 z-50 rounded-lg border bg-white px-2 py-2 shadow-sm"
-        aria-label="Menu"
-        aria-expanded={open}
-      >
-        <div className="flex flex-col items-center justify-center gap-1.5">
-          <span className="block h-0.5 w-5 bg-zinc-800" />
-          <span className="block h-0.5 w-5 bg-zinc-800" />
-          <span className="block h-0.5 w-5 bg-zinc-800" />
-        </div>
-      </button>
-
-      {/* Mobile Sidebar */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="fixed inset-0 z-40 md:hidden"
-            variants={overlayVar}
-            initial="hidden"
-            animate="show"
-            exit="exit"
-            onClick={() => setOpen(false)}
-          >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-            <motion.aside
-              className="absolute left-0 top-0 h-full w-64 bg-white shadow-lg p-4 flex flex-col"
-              variants={drawerVar}
-              initial="hidden"
-              animate="show"
-              exit="exit"
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-base font-medium text-zinc-800 mb-4">Admin Dashboard</h2>
-              <nav className="space-y-2 text-sm flex-1">
+      {/* Main Content */}
+      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+        <div className="mx-auto max-w-6xl space-y-8">
+          {/* Tab Header - Mobile with horizontal scroll */}
+          <div className="md:hidden space-y-3">
+            <div className="bg-white rounded-lg p-1 border overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
                 <button
-                  onClick={() => {
-                    setActiveTab("bookings");
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
-                    activeTab === "bookings" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
+                  onClick={() => setActiveTab("bookings")}
+                  className={`flex-none min-w-[100px] px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === "bookings"
+                      ? "bg-purple-600 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100"
                   }`}
                 >
-                  <CalendarIcon className="h-4 w-4" />
                   Bookings
                 </button>
                 <button
-                  onClick={() => {
-                    setActiveTab("giftcards");
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
-                    activeTab === "giftcards" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
+                  onClick={() => setActiveTab("classes")}
+                  className={`flex-none min-w-[100px] px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === "classes"
+                      ? "bg-purple-600 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100"
                   }`}
                 >
-                  <CreditCard className="h-4 w-4" />
-                  Gift Cards
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab("classes");
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
-                    activeTab === "classes" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
-                  }`}
-                >
-                  <GraduationCap className="h-4 w-4" />
                   Classes
                 </button>
                 <button
-                  onClick={() => {
-                    setActiveTab("clients");
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
-                    activeTab === "clients" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
+                  onClick={() => setActiveTab("giftcards")}
+                  className={`flex-none min-w-[100px] px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === "giftcards"
+                      ? "bg-purple-600 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100"
                   }`}
                 >
-                  <Users className="h-4 w-4" />
+                  Gift Cards
+                </button>
+                <button
+                  onClick={() => setActiveTab("clients")}
+                  className={`flex-none min-w-[100px] px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === "clients"
+                      ? "bg-purple-600 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100"
+                  }`}
+                >
                   Clients
                 </button>
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-zinc-100"
-                  onClick={() => setOpen(false)}
-                >
-                  <Home className="h-4 w-4" />
-                  Back to site
-                </Link>
-              </nav>
-              <form action="/api/admin/logout" method="post">
-                <button className="flex items-center gap-2 rounded-md px-3 py-2 text-red-600 hover:bg-red-50 w-full">
+              </div>
+            </div>
+
+            {/* Mobile Navigation - Back to site & Sign out */}
+            <div className="flex gap-2">
+              <Link
+                href="/"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-white border rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                <Home className="h-4 w-4" />
+                Back to site
+              </Link>
+              <form action="/api/admin/logout" method="post" className="flex-1">
+                <button className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
                   <LogOut className="h-4 w-4" />
                   Sign out
                 </button>
               </form>
-            </motion.aside>
-          </motion.div>
-        )}
-        
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-        <div className="mx-auto max-w-6xl space-y-8">
-          {/* Tab Header - Mobile */}
-          <div className="md:hidden flex gap-2 bg-white rounded-lg p-1 border">
-            <button
-              onClick={() => setActiveTab("bookings")}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "bookings"
-                  ? "bg-purple-600 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              Bookings
-            </button>
-            <button
-              onClick={() => setActiveTab("classes")}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "classes"
-                  ? "bg-purple-600 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              Classes
-            </button>
-            <button
-              onClick={() => setActiveTab("giftcards")}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "giftcards"
-                  ? "bg-purple-600 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              Gift Cards
-            </button>
+            </div>
           </div>
 
           {/* Bookings Tab */}
