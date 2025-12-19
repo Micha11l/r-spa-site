@@ -4,10 +4,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Home, LogOut, GraduationCap, Calendar as CalendarIcon, CreditCard } from "lucide-react";
+import { CalendarDays, Home, LogOut, GraduationCap, Calendar as CalendarIcon, CreditCard, Users } from "lucide-react";
 import AdminCalendar from "@/components/AdminCalendar";
 import ClassesManagement from "@/components/ClassesManagement";
 import GiftCardsManagement from "@/components/GiftCardsManagement";
+import ClientList from "@/components/ClientList";
 import toast from "react-hot-toast";
 
 type Booking = {
@@ -21,7 +22,7 @@ type Booking = {
   status: string;
 };
 
-type TabType = "bookings" | "classes" | "giftcards";
+type TabType = "bookings" | "classes" | "giftcards" | "clients";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("bookings");
@@ -180,6 +181,17 @@ export default function AdminPage() {
             <GraduationCap className="h-4 w-4" />
             Classes
           </button>
+          <button
+            onClick={() => setActiveTab("clients")}
+            className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
+              activeTab === "clients"
+                ? "bg-purple-100 text-purple-700 font-medium"
+                : "hover:bg-zinc-100"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Clients
+          </button>
 
           <Link href="/" className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-zinc-100">
             <Home className="h-4 w-4" />
@@ -269,6 +281,18 @@ export default function AdminPage() {
                 >
                   <GraduationCap className="h-4 w-4" />
                   Classes
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("clients");
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 ${
+                    activeTab === "clients" ? "bg-purple-100 text-purple-700" : "hover:bg-zinc-100"
+                  }`}
+                >
+                  <Users className="h-4 w-4" />
+                  Clients
                 </button>
                 <Link
                   href="/"
@@ -421,6 +445,26 @@ export default function AdminPage() {
                 </p>
               </div>
               <GiftCardsManagement />
+            </motion.div>
+          )}
+
+          {/* Clients Tab */}
+          {activeTab === "clients" && (
+            <motion.div
+              key="clients"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div>
+                <h1 className="text-2xl font-semibold">Client Management</h1>
+                <p className="text-sm text-zinc-600 mt-1">
+                  View all clients and send promotional emails
+                </p>
+              </div>
+              <ClientList />
             </motion.div>
           )}
         </div>
