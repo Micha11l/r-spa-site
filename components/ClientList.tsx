@@ -11,9 +11,13 @@ type Client = {
   phone: string;
   total_bookings: number;
   confirmed_bookings: number;
+  cancelled_bookings: number;
+  pending_bookings: number;
   visits: number;
   last_booking_at: string | null;
   last_visit_at: string | null;
+  next_booking_at: string | null;
+  last_service_name: string | null;
   ever_deposit_paid: boolean;
   total_deposit_cents: number;
   marketing_email_opt_in: boolean;
@@ -22,7 +26,7 @@ type Client = {
   user_id: string | null;
 };
 
-type SortField = "name" | "visits" | "last_visit";
+type SortField = "name" | "visits" | "last_visit" | "next_booking";
 
 export default function ClientList() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -73,6 +77,10 @@ export default function ClientList() {
         const aDate = a.last_visit_at ? new Date(a.last_visit_at).getTime() : 0;
         const bDate = b.last_visit_at ? new Date(b.last_visit_at).getTime() : 0;
         return bDate - aDate;
+      } else if (sortBy === "next_booking") {
+        const aDate = a.next_booking_at ? new Date(a.next_booking_at).getTime() : Infinity;
+        const bDate = b.next_booking_at ? new Date(b.next_booking_at).getTime() : Infinity;
+        return aDate - bDate; // Ascending: soonest first
       }
       // Default: alphabetical by name
       const aName = (a.last_name || a.name || a.email).toLowerCase();
@@ -84,41 +92,10 @@ export default function ClientList() {
   }, [clients, search, sortBy]);
 
   async function sendPromo(client: Client) {
-    const subject = prompt(`Subject for ${client.name || client.email}:`);
-    if (!subject) return;
-
-    const message = prompt("Message (plain text, will be formatted):");
-    if (!message) return;
-
-    const html = `
-      <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-        <h2>Hi ${client.name || "there"},</h2>
-        <p style="white-space:pre-wrap">${message}</p>
-        <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
-        <p style="font-size:12px;color:#999">
-          Rejuvenessence · 281 Parkwood Ave, Keswick, ON L4P 2X4
-        </p>
-      </div>
-    `;
-
-    const tId = toast.loading(`Sending to ${client.email}...`);
-    try {
-      const res = await fetch("/api/admin/promo-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: client.email, subject, html }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to send");
-
-      toast.success(
-        data.messageId ? `Sent! (${data.messageId})` : "Promo email sent!",
-        { id: tId }
-      );
-    } catch (e: any) {
-      toast.error(e.message || "Failed to send promo", { id: tId });
-    }
+    toast("Promo email feature coming soon!", {
+      duration: 3000,
+      icon: "ℹ️"
+    });
   }
 
   if (loading) {
@@ -178,6 +155,16 @@ export default function ClientList() {
         >
           Last Visit
         </button>
+        <button
+          onClick={() => setSortBy("next_booking")}
+          className={`px-3 py-1.5 text-sm rounded-lg transition ${
+            sortBy === "next_booking"
+              ? "bg-emerald-600 text-white"
+              : "bg-zinc-100 hover:bg-zinc-200"
+          }`}
+        >
+          Next Booking
+        </button>
       </div>
 
       {/* Desktop: Table */}
@@ -190,7 +177,9 @@ export default function ClientList() {
                 <th className="px-4 py-3 text-left font-medium">Email</th>
                 <th className="px-4 py-3 text-left font-medium">Phone</th>
                 <th className="px-4 py-3 text-center font-medium">Visits</th>
-                <th className="px-4 py-3 text-left font-medium">Last Visit</th>
+                <th className="px-4 py-3 text-center font-medium text-xs">Pending</th>
+                <th className="px-4 py-3 text-center font-medium text-xs">Cancelled</th>
+                <th className="px-4 py-3 text-left font-medium">Next Booking</th>
                 <th className="px-4 py-3 text-center font-medium">Deposit</th>
                 <th className="px-4 py-3 text-center font-medium">Actions</th>
               </tr>
@@ -198,13 +187,33 @@ export default function ClientList() {
             <tbody>
               {filteredClients.map((client) => (
                 <tr key={client.email} className="border-b hover:bg-zinc-50">
-                  <td className="px-4 py-3">{client.name || "—"}</td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <div>{client.name || "—"}</div>
+                      {client.last_service_name && (
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          Last: {client.last_service_name}
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-zinc-600">{client.email}</td>
                   <td className="px-4 py-3 text-zinc-600">{client.phone || "—"}</td>
                   <td className="px-4 py-3 text-center">{client.visits}</td>
-                  <td className="px-4 py-3 text-zinc-600">
-                    {client.last_visit_at
-                      ? new Date(client.last_visit_at).toLocaleDateString()
+                  <td className="px-4 py-3 text-center text-xs text-zinc-600">
+                    {client.pending_bookings || 0}
+                  </td>
+                  <td className="px-4 py-3 text-center text-xs text-zinc-600">
+                    {client.cancelled_bookings || 0}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600 text-sm">
+                    {client.next_booking_at
+                      ? new Date(client.next_booking_at).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -221,7 +230,8 @@ export default function ClientList() {
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => sendPromo(client)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-300 text-zinc-600 rounded-lg text-xs font-medium cursor-not-allowed"
+                      title="Coming soon"
                     >
                       <Mail size={14} />
                       Promo
@@ -255,6 +265,11 @@ export default function ClientList() {
                   {client.phone && (
                     <p className="text-sm text-zinc-600">{client.phone}</p>
                   )}
+                  {client.last_service_name && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Last: {client.last_service_name}
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
@@ -267,19 +282,36 @@ export default function ClientList() {
                 </span>
               </div>
 
-              <div className="flex gap-4 text-sm text-zinc-600">
+              <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
                 <span>Visits: {client.visits}</span>
-                <span>
-                  Last:{" "}
-                  {client.last_visit_at
-                    ? new Date(client.last_visit_at).toLocaleDateString()
-                    : "Never"}
-                </span>
+                {client.pending_bookings > 0 && (
+                  <span className="text-yellow-600">
+                    Pending: {client.pending_bookings}
+                  </span>
+                )}
+                {client.cancelled_bookings > 0 && (
+                  <span className="text-zinc-400">
+                    Cancelled: {client.cancelled_bookings}
+                  </span>
+                )}
               </div>
+
+              {client.next_booking_at && (
+                <div className="text-sm text-emerald-700 font-medium">
+                  Next:{" "}
+                  {new Date(client.next_booking_at).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              )}
 
               <button
                 onClick={() => sendPromo(client)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-300 text-zinc-600 rounded-lg text-sm font-medium cursor-not-allowed"
+                title="Coming soon"
               >
                 <Mail size={16} />
                 Send Promo Email
