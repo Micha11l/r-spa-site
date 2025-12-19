@@ -13,6 +13,7 @@ export async function POST(req: Request) {
     }
 
     const { to, name, checkoutUrl, bookingId } = body;
+    const depositCents = Number(process.env.SECURITY_DEPOSIT_CAD || 75) * 100;
 
     if (!to || !name || !checkoutUrl || !bookingId) {
       console.error("[email/deposit] missing fields:", body);
@@ -26,7 +27,11 @@ export async function POST(req: Request) {
     let bookingUpdated = false;
     const { error: updateError } = await supabaseAdmin
       .from("bookings")
-      .update({ status: "awaiting_deposit" })
+      .update({ 
+        status: "awaiting_deposit",
+        deposit_cents: depositCents,
+        deposit_paid: false,
+       })
       .eq("id", bookingId);
 
     if (updateError) {

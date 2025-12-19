@@ -81,6 +81,10 @@ function PayBooking({
       <div className="mx-auto max-w-2xl p-6 text-zinc-600">Loading booking…</div>
     );
 
+  const depositCents = 
+    bk?.deposit_cents && bk.deposit_cents > 0
+    ? bk.deposit_cents
+    : Number(process.env.NEXT_PUBLIC_SECURITY_DEPOSIT_CAD || process.env.SECURITY_DEPOSIT_CAD || 75) * 100;
   // ✅ 状态显示逻辑
   if (bk.status === "cancelled") {
     return (
@@ -112,7 +116,7 @@ function PayBooking({
           </div>
           <div>
             <span className="font-medium">Deposit Paid:</span>{" "}
-            {formatMoney(bk.deposit_cents)}
+            {formatMoney(depositCents)}
           </div>
         </div>
       </div>
@@ -137,8 +141,7 @@ function PayBooking({
         <div>
           <span className="font-medium">Deposit:</span>{" "}
           {formatMoney(
-            bk.deposit_cents ||
-              Math.round((bk.price_cents || 10000) * 0.5)
+            depositCents
           )}
         </div>
 
