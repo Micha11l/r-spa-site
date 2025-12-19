@@ -10,7 +10,7 @@ export async function GET() {
     // Get all bookings and aggregate by email
     const { data: bookings, error: bookingsError } = await supabaseAdmin
       .from("bookings")
-      .select("customer_email, customer_name, customer_phone, status, start_at, deposit_paid, deposit_cents")
+      .select("customer_email, customer_name, customer_phone, status, start_at, service_name, deposit_paid, deposit_cents")
       .not("customer_email", "is", null);
 
     if (bookingsError) {
@@ -52,61 +52,102 @@ export async function GET() {
       userIdToProfile.set(profile.id, profile);
     });
 
-    // Aggregate bookings by email
-    const clientsMap = new Map<string, any>();
-
+    // Group bookings by email
+    const bookingsByEmail = new Map<string, any[]>();
     (bookings || []).forEach(booking => {
       const email = booking.customer_email?.toLowerCase().trim();
       if (!email) return;
-
-      if (!clientsMap.has(email)) {
-        const userId = emailToUserId.get(email);
-        const profile = userId ? userIdToProfile.get(userId) : null;
-
-        clientsMap.set(email, {
-          email,
-          booking_name: booking.customer_name,
-          booking_phone: booking.customer_phone,
-          total_bookings: 0,
-          confirmed_bookings: 0,
-          visits: 0,
-          last_booking_at: null,
-          last_visit_at: null,
-          ever_deposit_paid: false,
-          total_deposit_cents: 0,
-          user_id: userId || null,
-          first_name: profile?.first_name || null,
-          last_name: profile?.last_name || null,
-          profile_phone: profile?.phone || null,
-          marketing_email_opt_in: profile?.email_notifications ?? true,
-        });
+      if (!bookingsByEmail.has(email)) {
+        bookingsByEmail.set(email, []);
       }
+      bookingsByEmail.get(email)!.push(booking);
+    });
 
-      const client = clientsMap.get(email);
-      client.total_bookings++;
+    // Aggregate bookings by email
+    const clientsMap = new Map<string, any>();
+    const now = new Date();
 
-      if (booking.status === "confirmed") {
-        client.confirmed_bookings++;
+    bookingsByEmail.forEach((clientBookings, email) => {
+      // Sort bookings by start_at
+      clientBookings.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+
+      const userId = emailToUserId.get(email);
+      const profile = userId ? userIdToProfile.get(userId) : null;
+
+      let total_bookings = 0;
+      let confirmed_bookings = 0;
+      let cancelled_bookings = 0;
+      let pending_bookings = 0;
+      let visits = 0;
+      let last_booking_at: string | null = null;
+      let last_visit_at: string | null = null;
+      let next_booking_at: string | null = null;
+      let last_service_name: string | null = null;
+      let ever_deposit_paid = false;
+      let total_deposit_cents = 0;
+      let booking_name = "";
+      let booking_phone = "";
+
+      clientBookings.forEach(booking => {
+        total_bookings++;
         const startAt = new Date(booking.start_at);
-        if (startAt < new Date()) {
-          client.visits++;
-          if (!client.last_visit_at || startAt > new Date(client.last_visit_at)) {
-            client.last_visit_at = booking.start_at;
+
+        // Status counts
+        if (booking.status === "confirmed") {
+          confirmed_bookings++;
+          if (startAt < now) {
+            visits++;
+            if (!last_visit_at || startAt > new Date(last_visit_at)) {
+              last_visit_at = booking.start_at;
+            }
           }
+        } else if (booking.status === "cancelled") {
+          cancelled_bookings++;
+        } else if (booking.status === "pending") {
+          pending_bookings++;
         }
-      }
 
-      const bookingDate = new Date(booking.start_at);
-      if (!client.last_booking_at || bookingDate > new Date(client.last_booking_at)) {
-        client.last_booking_at = booking.start_at;
-        client.booking_name = booking.customer_name; // Update to most recent
-        client.booking_phone = booking.customer_phone;
-      }
+        // Last booking (most recent by date)
+        if (!last_booking_at || startAt > new Date(last_booking_at)) {
+          last_booking_at = booking.start_at;
+          last_service_name = booking.service_name;
+          booking_name = booking.customer_name;
+          booking_phone = booking.customer_phone;
+        }
 
-      if (booking.deposit_paid) {
-        client.ever_deposit_paid = true;
-      }
-      client.total_deposit_cents += booking.deposit_cents || 0;
+        // Next booking (earliest future)
+        if (startAt > now && (!next_booking_at || startAt < new Date(next_booking_at))) {
+          next_booking_at = booking.start_at;
+        }
+
+        // Deposits
+        if (booking.deposit_paid) {
+          ever_deposit_paid = true;
+        }
+        total_deposit_cents += booking.deposit_cents || 0;
+      });
+
+      clientsMap.set(email, {
+        email,
+        booking_name,
+        booking_phone,
+        total_bookings,
+        confirmed_bookings,
+        cancelled_bookings,
+        pending_bookings,
+        visits,
+        last_booking_at,
+        last_visit_at,
+        next_booking_at,
+        last_service_name,
+        ever_deposit_paid,
+        total_deposit_cents,
+        user_id: userId || null,
+        first_name: profile?.first_name || null,
+        last_name: profile?.last_name || null,
+        profile_phone: profile?.phone || null,
+        marketing_email_opt_in: profile?.email_notifications ?? true,
+      });
     });
 
     // Convert to array and format
@@ -121,9 +162,13 @@ export async function GET() {
         phone: c.profile_phone?.trim() || c.booking_phone?.trim() || "",
         total_bookings: c.total_bookings,
         confirmed_bookings: c.confirmed_bookings,
+        cancelled_bookings: c.cancelled_bookings,
+        pending_bookings: c.pending_bookings,
         visits: c.visits,
-        last_booking_at: c.last_booking_at,
         last_visit_at: c.last_visit_at,
+        next_booking_at: c.next_booking_at,
+        last_service_name: c.last_service_name,
+        last_booking_at: c.last_booking_at,
         ever_deposit_paid: c.ever_deposit_paid,
         total_deposit_cents: c.total_deposit_cents,
         marketing_email_opt_in: c.marketing_email_opt_in,
