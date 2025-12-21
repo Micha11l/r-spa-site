@@ -15,7 +15,7 @@ type BookingEmailParams = {
   startISO: string;
   endISO: string;
   name: string;
-  email: string;   // 客户邮箱
+  email: string; // 客户邮箱
   phone: string;
   notes?: string;
 };
@@ -23,10 +23,15 @@ type BookingEmailParams = {
 // === 顶部常量：把这几行替换掉 ===
 const TZ = process.env.TIMEZONE || "America/Toronto";
 const SITE_NAME = process.env.SITE_NAME || "Rejuvenessence";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
-const SITE_ADDRESS = process.env.SITE_ADDRESS || "281 Parkwood Ave, Keswick, ON L4P 2X4";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
+const SITE_ADDRESS =
+  process.env.SITE_ADDRESS || "281 Parkwood Ave, Keswick, ON L4P 2X4";
 // 新增：展示用邮箱（页脚），默认回落到 SMTP 用户
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || process.env.ZOHO_SMTP_USER || "booking@nesses.ca";
+const CONTACT_EMAIL =
+  process.env.CONTACT_EMAIL ||
+  process.env.ZOHO_SMTP_USER ||
+  "booking@nesses.ca";
 
 // 原来是硬编码 Rejuvenessence，这里改成跟 SITE_NAME 同步
 const FROM_ADDR =
@@ -43,8 +48,14 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 // Existing Email Functions
 // =====================================================
 
-export async function sendDepositEmail(to: string, name: string, checkoutUrl: string): Promise<{ messageId?: string }> {
-  const { subject, html } = buildEmailTemplate("deposit", name, { checkoutUrl });
+export async function sendDepositEmail(
+  to: string,
+  name: string,
+  checkoutUrl: string,
+): Promise<{ messageId?: string }> {
+  const { subject, html } = buildEmailTemplate("deposit", name, {
+    checkoutUrl,
+  });
   const result = await resend.emails.send({
     from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
     to,
@@ -53,16 +64,20 @@ export async function sendDepositEmail(to: string, name: string, checkoutUrl: st
   });
 
   if (result.error) {
-    console.error('[email][deposit] failed:', result.error);
-    throw new Error(result.error.message || 'Failed to send deposit email');
+    console.error("[email][deposit] failed:", result.error);
+    throw new Error(result.error.message || "Failed to send deposit email");
   }
 
   const messageId = result.data?.id;
-  console.log('[email][deposit] queued', { to, messageId });
+  console.log("[email][deposit] queued", { to, messageId });
   return { messageId };
 }
 
-export async function sendRefuseEmail(to: string, name: string, reason?: string) {
+export async function sendRefuseEmail(
+  to: string,
+  name: string,
+  reason?: string,
+) {
   const { subject, html } = buildEmailTemplate("refuse", name, { reason });
   await resend.emails.send({
     from: `Rejuvenessence <noreply@rejuvenessence.org>`,
@@ -76,7 +91,7 @@ export async function sendPaymentSuccessEmail(
   to: string,
   name: string,
   serviceName: string,
-  time: string
+  time: string,
 ) {
   const { subject, html } = buildEmailTemplate("payment_success", name, {
     serviceName,
@@ -114,7 +129,7 @@ function fmtWhen(iso: string) {
 function diffMin(aISO: string, bISO: string) {
   return Math.max(
     0,
-    Math.round((new Date(bISO).getTime() - new Date(aISO).getTime()) / 60000)
+    Math.round((new Date(bISO).getTime() - new Date(aISO).getTime()) / 60000),
   );
 }
 
@@ -157,16 +172,22 @@ export async function sendBookingEmails(params: BookingEmailParams) {
   });
 
   // ===== 客户邮件（HTML + 纯文本 + .ics）=====
+  const depositAmount = process.env.SECURITY_DEPOSIT_CAD || "75";
+
   const customerText = `Hi ${params.name},
 
-Thanks for your request! Here are the details:
+We've received your booking request! Here are the details:
 Service:  ${params.service}
 When:     ${whenStr} (${durMin} min)
 Location: ${SITE_ADDRESS}
 
 What's next
-• We'll review and email you a confirmation shortly.
+• Your request is currently pending approval.
+• Once approved, we'll email you a secure payment link to pay a CA$${depositAmount} security deposit.
+• After deposit payment, your appointment will be confirmed.
 • The calendar invite (.ics) is attached.
+
+Tip: Keep an eye on your inbox (and spam/junk) for the deposit email.
 
 If you need to change the time, just reply to this email.
 
@@ -174,11 +195,11 @@ If you need to change the time, just reply to this email.
 `;
 
   const ics = makeICS(
-    `${SITE_NAME} — ${params.service}`,         // summary
+    `${SITE_NAME} — ${params.service}`, // summary
     `${SITE_NAME} session`, // description
-    SITE_ADDRESS,           // location
+    SITE_ADDRESS, // location
     params.startISO,
-    params.endISO
+    params.endISO,
   );
 
   const logoUrl = `${SITE_URL}/logo.png`; // 你的 /public/logo.png 会映射到 /logo.png
@@ -198,7 +219,7 @@ If you need to change the time, just reply to this email.
       <tr>
         <td>
           <h2 style="margin:0 0 8px;font-weight:600;font-size:20px">Hi ${params.name},</h2>
-          <p style="margin:0 0 16px">Thanks for your request! Here are the details:</p>
+          <p style="margin:0 0 16px">We've received your booking request! Here are the details:</p>
 
           <table role="presentation" cellspacing="0" cellpadding="0"
                  style="width:100%;border:1px solid #e5e7eb;border-radius:8px;
@@ -217,13 +238,23 @@ If you need to change the time, just reply to this email.
             </tr>
           </table>
 
+          <div style="margin:20px 0;padding:12px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px">
+            <p style="margin:0;font-weight:600;color:#92400e">⏳ Request Pending Approval</p>
+          </div>
+
           <h3 style="margin:20px 0 8px;font-size:16px">What's next</h3>
           <ul style="margin:0 0 16px;padding-left:20px">
-            <li>We'll review and email you a confirmation shortly.</li>
-            <li>The iCalendar (.ics) file is attached — add it to your calendar.</li>
+            <li>Your request is currently <strong>pending approval</strong>.</li>
+            <li>Once approved, we'll email you a secure payment link to pay a <strong>CA$${depositAmount} security deposit</strong>.</li>
+            <li>After deposit payment, your appointment will be confirmed.</li>
+            <li>The iCalendar (.ics) file is attached — you can add it to your calendar now.</li>
           </ul>
 
-          <p style="margin:0 0 16px">If you need to change the time, just reply to this email.</p>
+          <p style="margin:0 0 8px;padding:8px;background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:4px;font-size:14px;color:#0c4a6e">
+            <strong>💡 Tip:</strong> Keep an eye on your inbox (and spam/junk folder) for the deposit email.
+          </p>
+
+          <p style="margin:16px 0 16px">If you need to change the time, just reply to this email.</p>
 
           <p style="margin:24px 0 0;color:#6b7280;font-size:14px">— ${SITE_NAME}</p>
         </td>
@@ -243,9 +274,9 @@ If you need to change the time, just reply to this email.
   await transporter.sendMail({
     from: FROM_ADDR,
     to: params.email,
-    subject: `We received your request – ${params.service} on ${whenStr}`,
-    text: customerText,      // 纯文本
-    html: customerHtml,      // HTML 模板
+    subject: `Booking request received — deposit required to confirm`,
+    text: customerText, // 纯文本
+    html: customerHtml, // HTML 模板
     replyTo: process.env.ZOHO_SMTP_USER,
     ...(BCC_OWNER ? { bcc: owner } : {}),
     attachments: [
@@ -302,15 +333,19 @@ export async function sendGiftCardEmail(params: {
   const redeemUrl = `${SITE_URL}/redeem/${token}`;
 
   // Build email template
-  const { subject, html } = buildEmailTemplate("gift_card_recipient", recipientName || "there", {
-    code,
-    amount: amountFormatted,
-    senderName: senderName || undefined,
-    recipientName: recipientName || undefined,
-    message: message || undefined,
-    redeemUrl,
-    isGift,
-  });
+  const { subject, html } = buildEmailTemplate(
+    "gift_card_recipient",
+    recipientName || "there",
+    {
+      code,
+      amount: amountFormatted,
+      senderName: senderName || undefined,
+      recipientName: recipientName || undefined,
+      message: message || undefined,
+      redeemUrl,
+      isGift,
+    },
+  );
 
   // Generate PDF attachment
   let pdfBuffer: Buffer | null = null;
@@ -355,7 +390,9 @@ export async function sendGiftCardEmail(params: {
       },
     });
 
-    console.log(`[email] Gift card sent to ${recipientEmail}${pdfBuffer ? ' with PDF' : ' (no PDF)'}`);
+    console.log(
+      `[email] Gift card sent to ${recipientEmail}${pdfBuffer ? " with PDF" : " (no PDF)"}`,
+    );
   } catch (error: any) {
     console.error(`[email] Failed to send gift card email:`, error);
     throw error;
@@ -390,7 +427,7 @@ export async function sendGiftCardPurchaseConfirmation(params: {
       totalAmount: totalFormatted,
       cardCount: cards.length,
       cards,
-    }
+    },
   );
 
   // Send via Zoho SMTP (more reliable delivery)
@@ -420,7 +457,7 @@ export async function sendGiftCardPurchaseConfirmation(params: {
   try {
     const owner = process.env.RESEND_OWNER_EMAIL!;
 
-    const giftsCount = cards.filter(c => c.isGift).length;
+    const giftsCount = cards.filter((c) => c.isGift).length;
     const selfCount = cards.length - giftsCount;
 
     const ownerText = [
@@ -433,8 +470,9 @@ export async function sendGiftCardPurchaseConfirmation(params: {
       `As gifts:     ${giftsCount}`,
       ``,
       `Details:`,
-      ...cards.map((card, i) =>
-        `${i + 1}. ${card.code} - $${card.amount} - ${card.isGift ? `Gift to ${card.recipientEmail}` : 'For buyer'}`
+      ...cards.map(
+        (card, i) =>
+          `${i + 1}. ${card.code} - $${card.amount} - ${card.isGift ? `Gift to ${card.recipientEmail}` : "For buyer"}`,
       ),
       ``,
       `All gift cards have been sent to recipients.`,
@@ -467,18 +505,20 @@ export async function sendGiftCardUseNotification(params: {
   const { giftCard, amountUsed, newBalance, serviceName } = params;
 
   // Determine who to notify
-  const notifyEmail = giftCard.is_gift && giftCard.recipient_email
-    ? giftCard.recipient_email
-    : giftCard.sender_email || giftCard.purchased_by_email;
+  const notifyEmail =
+    giftCard.is_gift && giftCard.recipient_email
+      ? giftCard.recipient_email
+      : giftCard.sender_email || giftCard.purchased_by_email;
 
   if (!notifyEmail) {
     console.log("[email] No email to notify for gift card use");
     return;
   }
 
-  const notifyName = giftCard.is_gift && giftCard.recipient_name
-    ? giftCard.recipient_name
-    : giftCard.sender_name || "there";
+  const notifyName =
+    giftCard.is_gift && giftCard.recipient_name
+      ? giftCard.recipient_name
+      : giftCard.sender_name || "there";
 
   // Format amounts
   const amountUsedFormatted = `$${(amountUsed / 100).toFixed(2)}`;
