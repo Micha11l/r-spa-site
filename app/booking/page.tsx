@@ -1,17 +1,18 @@
-import Container from "@/components/Container";
-import SectionTitle from "@/components/SectionTitle";
-import BookingForm from "@/components/BookingForm";
+import { Suspense } from "react";
+import BookingClient from "./BookingClient";
 
-export default function BookingPage(){
+export default function BookingPage() {
   return (
-    <section className="section">
-      <Container>
-        <SectionTitle title="Book an Appointment" subtitle="No account required. Choose a service, date & time." />
-        <BookingForm />
-        <div className="mt-8 text-sm text-ash">
-          Exact address provided upon confirmation. Please review our <a href="/policies">Policies</a>.
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-lg text-zinc-600">Loading...</div>
+          </div>
         </div>
-      </Container>
-    </section>
-  )
+      }
+    >
+      <BookingClient />
+    </Suspense>
+  );
 }
