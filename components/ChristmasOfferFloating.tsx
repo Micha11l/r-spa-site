@@ -65,6 +65,22 @@ export default function ChristmasOfferFloating() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, [modalOpen]);
 
+  // Lock body scroll and compensate for scrollbar width
+  useEffect(() => {
+    if (modalOpen) {
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = "hidden";
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+      return () => {
+        document.body.style.overflow = "";
+        document.body.style.paddingRight = "";
+      };
+    }
+  }, [modalOpen]);
+
   function handleOfferAction(offer: Offer) {
     if (offer.type === "packages") {
       router.push("/holiday-packages");
@@ -92,15 +108,15 @@ export default function ChristmasOfferFloating() {
       {/* Floating Button */}
       <motion.button
         onClick={() => setModalOpen(true)}
-        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 group"
+        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 group transform-gpu"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
         <motion.div
-          className="relative flex items-center gap-2 bg-gradient-to-r from-red-600 to-green-600 text-white px-4 py-3 rounded-full shadow-lg"
+          className="relative flex items-center gap-2 bg-gradient-to-r from-red-600 to-green-600 text-white px-4 py-3 rounded-full shadow-lg transform-gpu will-change-transform"
           animate={{
             y: [0, -8, 0],
           }}
@@ -151,8 +167,9 @@ export default function ChristmasOfferFloating() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               onClick={() => setModalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/50 md:backdrop-blur-sm"
             />
 
             {/* Modal Panel */}
@@ -160,8 +177,8 @@ export default function ChristmasOfferFloating() {
               initial={{ y: "100%", opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="relative w-full max-w-2xl bg-white rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="relative w-full max-w-2xl bg-white rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] transform-gpu will-change-transform"
             >
               {/* Header */}
               <div className="sticky top-0 bg-gradient-to-r from-red-600 to-green-600 text-white px-6 py-4 rounded-t-3xl md:rounded-t-2xl flex items-center justify-between z-10">

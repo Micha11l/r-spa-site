@@ -12,7 +12,9 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
-    .select("id, service_name, customer_name, start_at, price_cents, deposit_cents, status")
+    .select(
+      "id, service_name, customer_name, start_at, price_cents, deposit_cents, status, offer_code, package_code, addons",
+    )
     .eq("id", id)
     .maybeSingle();
 

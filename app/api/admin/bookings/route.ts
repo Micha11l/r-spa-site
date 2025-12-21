@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     let query = supabaseAdmin
       .from("bookings")
       .select(
-        "id, service_name, start_at, end_at, status, customer_name, customer_phone, customer_email, notes"
+        "id, service_name, start_at, end_at, status, customer_name, customer_phone, customer_email, notes, offer_code, package_code, addons",
       );
 
     if (statusParam) {
@@ -58,12 +58,18 @@ export async function GET(req: NextRequest) {
       email: r.customer_email,
       phone: r.customer_phone,
       notes: r.notes ?? "",
+      offer_code: r.offer_code,
+      package_code: r.package_code,
+      addons: r.addons,
     }));
 
     return NextResponse.json(events, { status: 200 });
   } catch (e: any) {
     console.error("[admin/bookings] error:", e);
-    return NextResponse.json({ error: e.message || "server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -76,6 +82,9 @@ const schema = z.object({
   email: z.string().email(),
   phone: z.string().min(6),
   notes: z.string().optional().default(""),
+  offer_code: z.string().optional(),
+  package_code: z.string().optional(),
+  addons: z.array(z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -95,6 +104,9 @@ export async function POST(req: NextRequest) {
       email: data.email,
       phone: data.phone,
       notes: data.notes,
+      offer_code: data.offer_code,
+      package_code: data.package_code,
+      addons: data.addons,
     });
 
     if (!result.success) {
@@ -132,7 +144,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("[admin/bookings POST] error:", e);
-    const msg = e?.issues ? JSON.stringify(e.issues) : e?.message || "Unknown error";
+    const msg = e?.issues
+      ? JSON.stringify(e.issues)
+      : e?.message || "Unknown error";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
