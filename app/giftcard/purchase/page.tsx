@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import ChristmasOfferBadge from "@/components/ChristmasOfferBadge";
+// import ChristmasOfferBadge from "@/components/ChristmasOfferBadge";
 
 type GiftCardForm = {
   id: string;
@@ -586,7 +586,7 @@ export default function PurchaseGiftCardPage() {
         </div>
       </div>
 
-      <ChristmasOfferBadge />
+      {/* <ChristmasOfferBadge /> */}
     </div>
   );
 }

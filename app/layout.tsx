@@ -1,13 +1,20 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import Script from "next/script";
+import dynamic from "next/dynamic";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Toaster } from "react-hot-toast";
 
+const ChristmasOfferFloating = dynamic(
+  () => import("@/components/ChristmasOfferFloating"),
+  { ssr: false },
+);
+
 const SITE_NAME = "Rejuvenessence";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
 
 // ===== SEO Metadata =====
 export const metadata: Metadata = {
@@ -33,7 +40,11 @@ export const metadata: Metadata = {
 };
 
 // ===== Root Layout =====
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const ldJson = {
     "@context": "https://schema.org",
     "@type": "DaySpa",
@@ -92,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main>{children}</main>
         <Footer />
         <Toaster position="top-right" />
+        <ChristmasOfferFloating />
         <Script id="ld-localbusiness" type="application/ld+json">
           {JSON.stringify(ldJson)}
         </Script>

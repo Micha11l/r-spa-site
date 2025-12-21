@@ -1,6 +1,8 @@
 // components/BookingForm.tsx
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 
 type FormState = {
   service: string;
@@ -35,6 +37,39 @@ const SERVICES = [
   // Other
   "Private Event / Party (inquiry only)",
 ] as const;
+
+type HolidayPackage = {
+  id: string;
+  name: string;
+  tagline: string;
+  includes: string[];
+  queryParam: string;
+};
+
+const HOLIDAY_PACKAGES: HolidayPackage[] = [
+  {
+    id: "winter-glow",
+    name: "Winter Glow",
+    tagline: "Complete relaxation experience",
+    includes: [
+      "60-minute Full Body Massage",
+      "30-minute Private Sauna Session",
+      "30-minute Hot Tub Relaxation",
+    ],
+    queryParam: "winter_glow",
+  },
+  {
+    id: "couples-retreat",
+    name: "Couples' Holiday Retreat",
+    tagline: "Share the wellness together",
+    includes: [
+      "Private Hot Tub Session for Two",
+      "Festive Seasonal Treats",
+      "Non-Alcoholic Sparkling Beverages",
+    ],
+    queryParam: "couples_retreat",
+  },
+];
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const createInitialFormState = (): FormState => ({
@@ -75,6 +110,7 @@ export default function BookingForm({
   hideHoneypot = false,
   compact = false,
 }: BookingFormProps) {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -110,6 +146,30 @@ export default function BookingForm({
   const markTouched = (field: keyof typeof touched) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
+
+  const appendNote = (line: string) => {
+    setForm((prev) => {
+      const currentNotes = prev.notes?.trim() || "";
+      const newNotes = currentNotes ? `${currentNotes}\n${line}` : line;
+      return { ...prev, notes: newNotes };
+    });
+  };
+
+  // Handle URL package parameter
+  useEffect(() => {
+    const packageParam = searchParams?.get("package");
+    if (packageParam) {
+      const pkg = HOLIDAY_PACKAGES.find((p) => p.queryParam === packageParam);
+      if (pkg) {
+        const packageLine = `Holiday Package: ${pkg.name} (${pkg.includes.join(", ")})`;
+        appendNote(packageLine);
+        toast.success(`${pkg.name} package added to your request! 🎁`, {
+          duration: 4000,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -155,6 +215,9 @@ export default function BookingForm({
   }
 
   const gapClass = compact ? "gap-3" : "gap-4";
+  const isMassageService =
+    form.service.toLowerCase().includes("massage") ||
+    form.service.toLowerCase().includes("spa");
 
   return (
     <form
@@ -336,6 +399,58 @@ export default function BookingForm({
           onBlur={() => markTouched("notes")}
           className="w-full rounded-md border px-3 py-2"
         />
+      </div>
+
+      {/* Holiday Packages Section */}
+      <div className="border-t border-zinc-200 pt-4">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-semibold text-zinc-900">
+            Holiday Packages
+          </h3>
+          <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">
+            Limited time
+          </span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {HOLIDAY_PACKAGES.map((pkg) => (
+            <div
+              key={pkg.id}
+              className={`rounded-lg border-2 p-3 transition-all ${
+                isMassageService
+                  ? "border-emerald-300 bg-emerald-50"
+                  : "border-zinc-200 bg-white"
+              }`}
+            >
+              <h4 className="font-semibold text-sm text-zinc-900 mb-1">
+                {pkg.name}
+              </h4>
+              <p className="text-xs text-zinc-600 mb-2">{pkg.tagline}</p>
+              <ul className="space-y-1 mb-3">
+                {pkg.includes.map((item, index) => (
+                  <li
+                    key={index}
+                    className="flex items-start gap-1.5 text-xs text-zinc-700"
+                  >
+                    <span className="text-emerald-600 mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => {
+                  const packageLine = `Holiday Package: ${pkg.name} (${pkg.includes.join(", ")})`;
+                  appendNote(packageLine);
+                  toast.success(`${pkg.name} added to your request! 🎁`);
+                }}
+                className="w-full px-3 py-2 text-xs font-medium bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition"
+              >
+                Add to my request
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <button className="btn btn-primary" disabled={loading}>
