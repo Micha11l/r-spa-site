@@ -62,12 +62,13 @@ export async function createBooking(
   const endISO = endLocal.utc().toISOString();
 
   // Conflict detection: start_at < endISO AND end_at > startISO (adjacent times are OK)
+  // Only check for bookings that actually occupy the time slot (exclude cancelled)
   const { count: overlapCount, error: overlapErr } = await supabaseAdmin
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .lt("start_at", endISO)
     .gt("end_at", startISO)
-    .neq("status", "cancelled");
+    .in("status", ["pending", "awaiting_deposit", "confirmed"]);
 
   if (overlapErr) {
     console.error("[createBooking] overlap check error:", overlapErr);

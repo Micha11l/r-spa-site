@@ -33,6 +33,7 @@ export default function AdminCalendar({ onEventClick }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showCancelled, setShowCancelled] = useState(false);
 
   // ✅ 监听窗口宽度
   useEffect(() => {
@@ -69,10 +70,26 @@ export default function AdminCalendar({ onEventClick }: Props) {
     return `${s.toLocaleDateString()} ${s.toLocaleTimeString([], opts)} → ${e.toLocaleTimeString([], opts)}`;
   }
 
+  // Filter events based on showCancelled toggle
+  const filteredEvents = showCancelled
+    ? events
+    : events.filter((e) => e.status !== "cancelled");
+
   return (
     <div className="relative w-full">
-      {/* Toolbar with Add Appointment button */}
-      <div className={`mb-4 flex ${isMobile ? 'flex-col gap-2' : 'justify-end'}`}>
+      {/* Toolbar with Add Appointment button and Show Cancelled toggle */}
+      <div className={`mb-4 flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(e) => setShowCancelled(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span>Show cancelled bookings</span>
+          </label>
+        </div>
         <button
           onClick={() => setShowAddModal(true)}
           className={`${isMobile ? 'w-full' : ''} px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors`}
@@ -90,7 +107,7 @@ export default function AdminCalendar({ onEventClick }: Props) {
           right: isMobile ? "" : "dayGridMonth,timeGridWeek,timeGridDay",
         }}
         height="auto"
-        events={events}
+        events={filteredEvents}
         eventTimeFormat={{
           hour: "2-digit",
           minute: "2-digit",
@@ -102,6 +119,23 @@ export default function AdminCalendar({ onEventClick }: Props) {
             listDaySideFormat: false,
           },
         }}
+        eventClassNames={(arg) => {
+          const status = arg.event.extendedProps.status;
+          const classes = ["cursor-pointer"];
+
+          // Add status-based color classes
+          if (status === "pending") {
+            classes.push("!bg-yellow-100", "!border-yellow-400", "!text-yellow-800");
+          } else if (status === "awaiting_deposit") {
+            classes.push("!bg-blue-100", "!border-blue-400", "!text-blue-800");
+          } else if (status === "confirmed") {
+            classes.push("!bg-green-100", "!border-green-400", "!text-green-800");
+          } else if (status === "cancelled") {
+            classes.push("!bg-zinc-100", "!border-zinc-300", "!text-zinc-600");
+          }
+
+          return classes;
+        }}
         eventClick={(info) => {
           const event = info.event.extendedProps as BookingEvent;
           const fullEvent = {
@@ -112,13 +146,10 @@ export default function AdminCalendar({ onEventClick }: Props) {
             ...event,
           };
 
-          if (window.innerWidth < 768) {
-            // ✅ 手机端直接打开底部弹窗
-            setSelectedEvent(fullEvent);
-            return;
+          // Always use onEventClick if provided (for both mobile and desktop)
+          if (onEventClick) {
+            onEventClick(fullEvent);
           }
-
-          if (onEventClick) onEventClick(fullEvent);
         }}
       />
 
@@ -214,174 +245,6 @@ export default function AdminCalendar({ onEventClick }: Props) {
           </AnimatePresence>,
           document.body
         )}
-
-      {/* Event detail modal (existing) */}
-      {typeof window !== "undefined" &&
-  createPortal(
-    <AnimatePresence>
-      {selectedEvent && isMobile && (
-        <>
-          {/* 背景遮罩 */}
-          <motion.div
-            className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedEvent(null)}
-          />
-
-          {/* 底部弹窗 */}
-          <motion.div
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 100) setSelectedEvent(null);
-            }}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 240, damping: 25 }}
-            className="fixed left-0 right-0 bottom-0 z-[9999]
-                       bg-white rounded-t-[2rem] shadow-[0_-8px_30px_rgba(0,0,0,0.1)]
-                       p-6 max-h-[85vh] overflow-y-auto
-                       pb-[env(safe-area-inset-bottom)] touch-pan-y"
-          >
-            {/* 顶部拖拽线 */}
-            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-zinc-300" />
-
-            {/* 内容区 */}
-            <div className="space-y-2 text-sm text-zinc-700">
-              <h3 className="text-lg font-semibold text-zinc-900">
-                {selectedEvent.title}
-              </h3>
-
-              <p>
-                <strong>Name:</strong> {selectedEvent.name || "—"}
-              </p>
-              <p>
-                <strong>Phone:</strong> {selectedEvent.phone || "—"}
-              </p>
-              <p>
-                <strong>Status:</strong>{" "}
-                <span
-                  className={
-                    selectedEvent.status === "confirmed"
-                      ? "text-green-600"
-                      : selectedEvent.status === "pending"
-                      ? "text-yellow-600"
-                      : "text-zinc-500"
-                  }
-                >
-                  {selectedEvent.status}
-                </span>
-              </p>
-              <p>
-                <strong>Time:</strong>{" "}
-                {new Date(selectedEvent.start).toLocaleString()} →{" "}
-                {new Date(selectedEvent.end).toLocaleTimeString()}
-              </p>
-              {selectedEvent.notes && (
-                <p>
-                  <strong>Notes:</strong> {selectedEvent.notes}
-                </p>
-              )}
-            </div>
-
-            {/* 操作按钮区 */}
-<div className="mt-6 flex flex-col sm:flex-row gap-3">
-  <motion.button
-    whileTap={{ scale: 0.96 }}
-    onClick={async () => {
-      const tId = toast.loading("Sending deposit email...");
-      try {
-        const checkoutUrl = `${window.location.origin}/pay/${selectedEvent.id}`;
-
-        const res = await fetch("/api/email/deposit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: selectedEvent.email,
-            name: selectedEvent.name,
-            checkoutUrl,
-            bookingId: selectedEvent.id,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to send deposit email");
-        }
-
-        const message = data.messageId
-          ? `✅ Deposit email sent! (id: ${data.messageId})`
-          : "✅ Deposit email sent!";
-        toast.success(message, { id: tId });
-        loadBookings();
-      } catch (e: any) {
-        toast.error(`❌ ${e.message}`, { id: tId });
-      } finally {
-        setSelectedEvent(null);
-      }
-    }}
-    className="flex-1 rounded-md bg-green-600 hover:bg-green-700 text-white py-2 text-sm font-medium shadow-sm active:scale-95"
-  >
-    ✅ Send Deposit Email
-  </motion.button>
-
-  <motion.button
-    whileTap={{ scale: 0.96 }}
-    onClick={async () => {
-      const tId = toast.loading("Sending refusal...");
-      try {
-        const res = await fetch("/api/email/refuse", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: selectedEvent.email,
-            name: selectedEvent.name,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Failed to send refusal email");
-
-        await fetch("/api/admin/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: selectedEvent.id, status: "cancelled" }),
-        });
-
-        toast.success("❌ Booking refused", { id: tId });
-        loadBookings();
-      } catch (e: any) {
-        toast.error(`⚠️ ${e.message}`, { id: tId });
-      } finally {
-        setSelectedEvent(null);
-      }
-    }}
-    className="flex-1 rounded-md bg-red-600 hover:bg-red-700 text-white py-2 text-sm font-medium shadow-sm active:scale-95"
-  >
-    ❌ Refuse Booking
-  </motion.button>
-</div>
-
-
-            {/* 关闭按钮 */}
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700"
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body
-  )}
 
     </div>
   );

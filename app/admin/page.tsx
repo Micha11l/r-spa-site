@@ -4,11 +4,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Home, LogOut, GraduationCap, CreditCard, Users } from "lucide-react";
+import { CalendarDays, Home, LogOut, GraduationCap, CreditCard, Users, X } from "lucide-react";
 import AdminCalendar from "@/components/AdminCalendar";
 import ClassesManagement from "@/components/ClassesManagement";
 import GiftCardsManagement from "@/components/GiftCardsManagement";
 import ClientList from "@/components/ClientList";
+import AdminBookingDetailModal from "@/components/AdminBookingDetailModal";
 import toast from "react-hot-toast";
 
 type Booking = {
@@ -31,6 +32,18 @@ export default function AdminPage() {
     type: "deposit" | "refuse";
     booking: Booking;
   } | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [refuseModalOpen, setRefuseModalOpen] = useState(false);
+  const [refuseReason, setRefuseReason] = useState("Time slot unavailable");
+  const [refuseTarget, setRefuseTarget] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // 📦 Load pending bookings
   useEffect(() => {
@@ -87,30 +100,52 @@ export default function AdminPage() {
     }
   }
   
-  async function handleRefuse(b: Booking) {
+  function openRefuseModal(b: Booking) {
+    setRefuseTarget(b);
+    setRefuseReason("Time slot unavailable");
+    setRefuseModalOpen(true);
+  }
+
+  async function handleRefuseConfirm() {
+    if (!refuseTarget) return;
+
     const loadingId = toast.loading("Sending refusal email...");
     try {
       const res = await fetch("/api/email/refuse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: b.email,
-          name: b.name,
-          reason: "Time slot unavailable",
+          to: refuseTarget.email,
+          name: refuseTarget.name,
+          reason: refuseReason.trim() || "Time slot unavailable",
         }),
       });
-  
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send refusal email");
-  
-      await updateStatus(b.id, "cancelled");
+
+      await updateStatus(refuseTarget.id, "cancelled");
       toast.success("Refusal email sent.", { id: loadingId });
       refreshPending();
     } catch (e: any) {
       toast.error(e.message || "Failed to send refusal email", { id: loadingId });
     } finally {
-      setConfirmModal(null);
+      setRefuseModalOpen(false);
+      setRefuseTarget(null);
     }
+  }
+
+  function formatDateTime(isoString: string) {
+    const date = new Date(isoString);
+    return date.toLocaleString("en-US", {
+      timeZone: "America/Toronto",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
   }
 
   const modalVar = {
@@ -276,9 +311,7 @@ export default function AdminPage() {
               <h1 className="text-2xl font-semibold">Bookings Schedule</h1>
               <div className="rounded-xl border bg-white p-3 md:p-4 shadow-sm">
                 <AdminCalendar
-                  onEventClick={(event: any) =>
-                    setConfirmModal({ type: "deposit", booking: event.extendedProps })
-                  }
+                  onEventClick={(event: any) => setSelectedBooking(event)}
                 />
               </div>
 
@@ -290,23 +323,43 @@ export default function AdminPage() {
                   {pending.map((b) => (
                     <li
                       key={b.id}
-                      className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between"
+                      className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between hover:border-emerald-300 transition cursor-pointer"
+                      onClick={() => setSelectedBooking({
+                        id: b.id,
+                        title: b.service_name,
+                        start: b.start,
+                        end: b.end,
+                        status: b.status,
+                        name: b.name,
+                        email: b.email,
+                        phone: b.phone,
+                        service_name: b.service_name,
+                      })}
                     >
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">{b.service_name}</p>
                         <p className="text-sm text-zinc-500">
                           {b.name} · {b.phone}
                         </p>
+                        <p className="text-sm text-zinc-600 mt-1">
+                          {formatDateTime(b.start)}
+                        </p>
                       </div>
                       <div className="flex gap-2 mt-2 sm:mt-0">
                         <button
-                          onClick={() => setConfirmModal({ type: "deposit", booking: b })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendDeposit(b);
+                          }}
                           className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
                         >
                           Send Deposit Email
                         </button>
                         <button
-                          onClick={() => setConfirmModal({ type: "refuse", booking: b })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRefuseModal(b);
+                          }}
                           className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
                         >
                           Refuse Booking
@@ -381,69 +434,96 @@ export default function AdminPage() {
         </div>
       </main>
 
-      {/* Confirmation Modal for Bookings */}
+      {/* Admin Booking Detail Modal */}
+      <AdminBookingDetailModal
+        open={!!selectedBooking}
+        onClose={() => setSelectedBooking(null)}
+        booking={selectedBooking}
+        isMobile={isMobile}
+        onRefresh={refreshPending}
+      />
+
+      {/* Refuse Modal */}
       <AnimatePresence>
-        {confirmModal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+        {refuseModalOpen && refuseTarget && (
+          <>
             <motion.div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setConfirmModal(null)}
+              className="fixed inset-0 z-[200] bg-black/40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              onClick={() => setRefuseModalOpen(false)}
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 40 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                transition: { type: "spring", stiffness: 260, damping: 22 },
-              }}
-              exit={{ opacity: 0, scale: 0.9, y: 40 }}
-              className="relative bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-sm z-10"
+              className={
+                isMobile
+                  ? "fixed z-[201] inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl border p-4"
+                  : "fixed z-[201] left-1/2 top-1/2 w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl border p-4"
+              }
+              initial={
+                isMobile
+                  ? { y: 30, opacity: 0 }
+                  : { opacity: 0, scale: 0.95, y: 10 }
+              }
+              animate={
+                isMobile
+                  ? { y: 0, opacity: 1 }
+                  : { opacity: 1, scale: 1, y: 0 }
+              }
+              exit={
+                isMobile
+                  ? { y: 30, opacity: 0 }
+                  : { opacity: 0, scale: 0.95, y: 10 }
+              }
             >
-              <h3 className="text-lg font-semibold mb-2">
-                {confirmModal?.type === "deposit"
-                  ? "Send Deposit Email?"
-                  : "Refuse this booking?"}
-              </h3>
-              <p className="text-sm text-zinc-600 mb-4">
-                {confirmModal?.booking
-                  ? `${confirmModal.booking.name} - ${confirmModal.booking.service_name}`
-                  : "No booking selected"}
-              </p>
-              <div className="flex justify-end gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="text-base font-semibold text-zinc-900">
+                    Refuse Booking
+                  </h4>
+                  <p className="text-sm text-zinc-600 mt-1">
+                    Enter reason (will be sent to customer)
+                  </p>
+                </div>
+
                 <button
-                  onClick={() => setConfirmModal(null)}
-                  className="px-3 py-1.5 text-sm rounded-md bg-zinc-100 hover:bg-zinc-200"
+                  className="p-2 rounded-lg hover:bg-zinc-100"
+                  onClick={() => setRefuseModalOpen(false)}
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <label className="block text-sm font-medium text-zinc-700 mt-4">
+                Refusal Reason
+              </label>
+
+              <textarea
+                value={refuseReason}
+                onChange={(e) => setRefuseReason(e.target.value)}
+                rows={3}
+                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200"
+                placeholder="Time slot unavailable"
+              />
+
+              <div className="mt-4 flex gap-2 justify-end">
+                <button
+                  className="px-3 py-2 text-sm rounded-lg bg-zinc-100 hover:bg-zinc-200"
+                  onClick={() => setRefuseModalOpen(false)}
                 >
                   Cancel
                 </button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() =>
-                    confirmModal.type === "deposit"
-                      ? handleSendDeposit(confirmModal.booking)
-                      : handleRefuse(confirmModal.booking)
-                  }
-                  className={`px-3 py-1.5 text-sm rounded-md text-white ${
-                    confirmModal.type === "deposit"
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
+                <button
+                  className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+                  onClick={handleRefuseConfirm}
                 >
-                  Confirm
-                </motion.button>
+                  Confirm Refuse
+                </button>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

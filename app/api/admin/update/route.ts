@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   const { id, status } = await req.json();
   if (
     !id ||
-    !["pending", "confirmed", "cancelled", "deposit_sent", "refused"].includes(status)
+    !["pending", "confirmed", "cancelled", "deposit-sent", "refused"].includes(status)
   ) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }

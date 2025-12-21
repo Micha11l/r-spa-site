@@ -78,7 +78,10 @@ export default function BookingForm({
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>({ ...createInitialFormState(), ...initial });
+  const [form, setForm] = useState<FormState>({
+    ...createInitialFormState(),
+    ...initial,
+  });
   const [touched, setTouched] = useState<TouchedState>(createTouchedState());
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -96,7 +99,9 @@ export default function BookingForm({
   );
 
   const showFieldError = (field: keyof typeof formErrors) =>
-    (touched[field] || submitAttempted) && formErrors[field] ? formErrors[field] : "";
+    (touched[field] || submitAttempted) && formErrors[field]
+      ? formErrors[field]
+      : "";
 
   const handleFieldChange = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -125,12 +130,18 @@ export default function BookingForm({
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      if (!res.ok) {
+        // Map error codes to user-friendly messages
+        const errorCode = data.error || "Failed";
+        throw new Error(errorCode);
+      }
 
       if (onSuccess) {
         onSuccess(data);
       } else {
-        setOk("Thank you! Your request has been received. We'll confirm by email shortly.");
+        setOk(
+          "Thank you! Your request has been received. We'll confirm by email shortly.",
+        );
       }
 
       setForm(createInitialFormState());
@@ -146,7 +157,12 @@ export default function BookingForm({
   const gapClass = compact ? "gap-3" : "gap-4";
 
   return (
-    <form onSubmit={submit} className={`grid ${gapClass} max-w-xl`} noValidate aria-live="polite">
+    <form
+      onSubmit={submit}
+      className={`grid ${gapClass} max-w-xl`}
+      noValidate
+      aria-live="polite"
+    >
       {/* 蜜罐（隐藏） */}
       {!hideHoneypot && (
         <div style={{ display: "none" }} aria-hidden="true">
@@ -197,7 +213,9 @@ export default function BookingForm({
             required
             className="w-full rounded-md border px-3 py-2"
             aria-invalid={Boolean(showFieldError("date"))}
-            aria-describedby={showFieldError("date") ? "booking-date-error" : undefined}
+            aria-describedby={
+              showFieldError("date") ? "booking-date-error" : undefined
+            }
           />
           {showFieldError("date") && (
             <p id="booking-date-error" className="mt-1 text-sm text-red-600">
@@ -218,7 +236,9 @@ export default function BookingForm({
             required
             className="w-full rounded-md border px-3 py-2"
             aria-invalid={Boolean(showFieldError("time"))}
-            aria-describedby={showFieldError("time") ? "booking-time-error" : undefined}
+            aria-describedby={
+              showFieldError("time") ? "booking-time-error" : undefined
+            }
           />
           {showFieldError("time") && (
             <p id="booking-time-error" className="mt-1 text-sm text-red-600">
@@ -242,7 +262,9 @@ export default function BookingForm({
             className="w-full rounded-md border px-3 py-2"
             autoComplete="name"
             aria-invalid={Boolean(showFieldError("name"))}
-            aria-describedby={showFieldError("name") ? "booking-name-error" : undefined}
+            aria-describedby={
+              showFieldError("name") ? "booking-name-error" : undefined
+            }
           />
           {showFieldError("name") && (
             <p id="booking-name-error" className="mt-1 text-sm text-red-600">
@@ -265,7 +287,9 @@ export default function BookingForm({
             autoComplete="email"
             inputMode="email"
             aria-invalid={Boolean(showFieldError("email"))}
-            aria-describedby={showFieldError("email") ? "booking-email-error" : undefined}
+            aria-describedby={
+              showFieldError("email") ? "booking-email-error" : undefined
+            }
           />
           {showFieldError("email") && (
             <p id="booking-email-error" className="mt-1 text-sm text-red-600">
@@ -289,7 +313,9 @@ export default function BookingForm({
           autoComplete="tel"
           inputMode="tel"
           aria-invalid={Boolean(showFieldError("phone"))}
-          aria-describedby={showFieldError("phone") ? "booking-phone-error" : undefined}
+          aria-describedby={
+            showFieldError("phone") ? "booking-phone-error" : undefined
+          }
         />
         {showFieldError("phone") && (
           <p id="booking-phone-error" className="mt-1 text-sm text-red-600">
@@ -316,11 +342,77 @@ export default function BookingForm({
         {loading ? "Submitting..." : submitLabel}
       </button>
 
-      {ok && <div className="text-green-600">{ok}</div>}
-      {err && <div className="text-red-600">{err}</div>}
+      {/* Success Card */}
+      {ok && (
+        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-6 w-6 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-green-900">Success!</h3>
+              <p className="mt-1 text-sm text-green-700">{ok}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Card */}
+      {err && (
+        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-6 w-6 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-900">
+                {err === "time_taken"
+                  ? "Time Slot Unavailable"
+                  : "Booking Error"}
+              </h3>
+              <p className="mt-1 text-sm text-red-700">
+                {err === "time_taken"
+                  ? "Someone just booked this time. Please choose another slot."
+                  : err}
+              </p>
+              <button
+                onClick={() => setErr(null)}
+                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
+              >
+                Choose Another Time
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <small>
-        By booking, you acknowledge these are wellness sessions, not medical treatment.
+        By booking, you acknowledge these are wellness sessions, not medical
+        treatment.
       </small>
     </form>
   );
