@@ -19,6 +19,9 @@ type BookingEvent = {
   service_name?: string;
   deposit_cents?: number;
   deposit_paid?: boolean;
+  offer_code?: string | null;
+  package_code?: string | null;
+  addons?: string[] | null;
 };
 
 type AdminBookingDetailModalProps = {
@@ -381,6 +384,39 @@ export default function AdminBookingDetailModal({
                     <p className="text-sm text-zinc-600 italic">
                       {booking.notes}
                     </p>
+                  </div>
+                )}
+
+                {/* Offer, Package, Add-ons */}
+                {(booking.offer_code ||
+                  booking.package_code ||
+                  (booking.addons && booking.addons.length > 0)) && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-zinc-700 mb-2">
+                      Promotions & Add-ons
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {booking.offer_code && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-purple-100 text-purple-700 text-xs font-medium">
+                          🎁 Offer: {booking.offer_code}
+                        </span>
+                      )}
+                      {booking.package_code && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 text-xs font-medium">
+                          📦 Package: {booking.package_code}
+                        </span>
+                      )}
+                      {booking.addons &&
+                        booking.addons.length > 0 &&
+                        booking.addons.map((addon) => (
+                          <span
+                            key={addon}
+                            className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-700 text-xs font-medium"
+                          >
+                            ➕ {addon}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 )}
 

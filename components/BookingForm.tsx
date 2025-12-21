@@ -121,6 +121,15 @@ export default function BookingForm({
   const [touched, setTouched] = useState<TouchedState>(createTouchedState());
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
+  // Structured metadata state
+  const [selectedPackageCode, setSelectedPackageCode] = useState<string | null>(
+    null,
+  );
+  const [selectedOfferCode, setSelectedOfferCode] = useState<string | null>(
+    null,
+  );
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
   const formErrors = useMemo(
     () => ({
       service: "",
@@ -147,26 +156,28 @@ export default function BookingForm({
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const appendNote = (line: string) => {
-    setForm((prev) => {
-      const currentNotes = prev.notes?.trim() || "";
-      const newNotes = currentNotes ? `${currentNotes}\n${line}` : line;
-      return { ...prev, notes: newNotes };
-    });
-  };
-
-  // Handle URL package parameter
+  // Handle URL package parameter and localStorage offer
   useEffect(() => {
+    // Check for package param in URL
     const packageParam = searchParams?.get("package");
     if (packageParam) {
       const pkg = HOLIDAY_PACKAGES.find((p) => p.queryParam === packageParam);
       if (pkg) {
-        const packageLine = `Holiday Package: ${pkg.name} (${pkg.includes.join(", ")})`;
-        appendNote(packageLine);
-        toast.success(`${pkg.name} package added to your request! 🎁`, {
+        setSelectedPackageCode(packageParam);
+        toast.success(`${pkg.name} package selected! 🎁`, {
           duration: 4000,
         });
       }
+    }
+
+    // Check for offer in localStorage
+    try {
+      const offerCode = localStorage.getItem("christmas_offer_selected");
+      if (offerCode) {
+        setSelectedOfferCode(offerCode);
+      }
+    } catch (e) {
+      // localStorage not available
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -187,7 +198,12 @@ export default function BookingForm({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          offer_code: selectedOfferCode || undefined,
+          package_code: selectedPackageCode || undefined,
+          addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -207,6 +223,9 @@ export default function BookingForm({
       setForm(createInitialFormState());
       setTouched(createTouchedState());
       setSubmitAttempted(false);
+      setSelectedPackageCode(null);
+      setSelectedOfferCode(null);
+      setSelectedAddons([]);
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -413,45 +432,139 @@ export default function BookingForm({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {HOLIDAY_PACKAGES.map((pkg) => (
-            <div
-              key={pkg.id}
-              className={`rounded-lg border-2 p-3 transition-all ${
-                isMassageService
-                  ? "border-emerald-300 bg-emerald-50"
-                  : "border-zinc-200 bg-white"
-              }`}
-            >
-              <h4 className="font-semibold text-sm text-zinc-900 mb-1">
-                {pkg.name}
-              </h4>
-              <p className="text-xs text-zinc-600 mb-2">{pkg.tagline}</p>
-              <ul className="space-y-1 mb-3">
-                {pkg.includes.map((item, index) => (
-                  <li
-                    key={index}
-                    className="flex items-start gap-1.5 text-xs text-zinc-700"
-                  >
-                    <span className="text-emerald-600 mt-0.5">✓</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
+          {HOLIDAY_PACKAGES.map((pkg) => {
+            const isSelected = selectedPackageCode === pkg.queryParam;
+            return (
+              <div
+                key={pkg.id}
+                className={`rounded-lg border-2 p-3 transition-all cursor-pointer ${
+                  isSelected
+                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                    : isMassageService
+                      ? "border-emerald-300 bg-emerald-50"
+                      : "border-zinc-200 bg-white hover:border-emerald-400"
+                }`}
                 onClick={() => {
-                  const packageLine = `Holiday Package: ${pkg.name} (${pkg.includes.join(", ")})`;
-                  appendNote(packageLine);
-                  toast.success(`${pkg.name} added to your request! 🎁`);
+                  if (isSelected) {
+                    setSelectedPackageCode(null);
+                    toast.success("Package removed");
+                  } else {
+                    setSelectedPackageCode(pkg.queryParam);
+                    toast.success(`${pkg.name} selected! 🎁`);
+                  }
                 }}
-                className="w-full px-3 py-2 text-xs font-medium bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition"
               >
-                Add to my request
-              </button>
-            </div>
-          ))}
+                <div className="flex items-start justify-between mb-1">
+                  <h4 className="font-semibold text-sm text-zinc-900">
+                    {pkg.name}
+                  </h4>
+                  {isSelected && (
+                    <span className="text-emerald-600 text-sm">✓</span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-600 mb-2">{pkg.tagline}</p>
+                <ul className="space-y-1">
+                  {pkg.includes.map((item, index) => (
+                    <li
+                      key={index}
+                      className="flex items-start gap-1.5 text-xs text-zinc-700"
+                    >
+                      <span className="text-emerald-600 mt-0.5">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Add-ons Section */}
+      <div className="border-t border-zinc-200 pt-4">
+        <h3 className="text-sm font-semibold text-zinc-900 mb-3">
+          Optional Add-ons
+        </h3>
+        <div className="space-y-2">
+          <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-emerald-400 transition cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedAddons.includes("sauna")}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedAddons([...selectedAddons, "sauna"]);
+                } else {
+                  setSelectedAddons(
+                    selectedAddons.filter((a) => a !== "sauna"),
+                  );
+                }
+              }}
+              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+            />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-zinc-900">
+                Sauna Session
+              </span>
+              <p className="text-xs text-zinc-600">
+                Add a relaxing sauna session
+              </p>
+            </div>
+          </label>
+          <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-emerald-400 transition cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedAddons.includes("hot_tub")}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedAddons([...selectedAddons, "hot_tub"]);
+                } else {
+                  setSelectedAddons(
+                    selectedAddons.filter((a) => a !== "hot_tub"),
+                  );
+                }
+              }}
+              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+            />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-zinc-900">
+                Hot Tub Session
+              </span>
+              <p className="text-xs text-zinc-600">
+                Add a soothing hot tub session
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Offer Summary */}
+      {selectedOfferCode && (
+        <div className="border-2 border-purple-200 bg-purple-50 rounded-lg p-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-purple-900">
+                🎁 Offer Applied: {selectedOfferCode}
+              </p>
+              <p className="text-xs text-purple-700 mt-1">
+                This offer will be included with your booking
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOfferCode(null);
+                try {
+                  localStorage.removeItem("christmas_offer_selected");
+                } catch (e) {}
+                toast.success("Offer removed");
+              }}
+              className="text-purple-600 hover:text-purple-800 text-sm ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <button className="btn btn-primary" disabled={loading}>
         {loading ? "Submitting..." : submitLabel}

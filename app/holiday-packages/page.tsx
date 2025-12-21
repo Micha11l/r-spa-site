@@ -133,7 +133,7 @@ export default function HolidayPackagesPage() {
 
                 {/* Request Button */}
                 <Link
-                  href={`/?package=${pkg.queryParam}`}
+                  href={`/booking?package=${pkg.queryParam}`}
                   className={`block w-full bg-gradient-to-r ${pkg.gradient} text-white text-center px-6 py-3 rounded-xl font-semibold shadow-sm hover:shadow-lg transition-all duration-300 group-hover:scale-[1.02]`}
                 >
                   Request This Package
@@ -155,8 +155,9 @@ export default function HolidayPackagesPage() {
               </h3>
               <p className="text-sm text-blue-800 leading-relaxed">
                 Packages are requests and subject to availability. Final
-                confirmation happens after approval and deposit payment. We&apos;ll
-                contact you within 24 hours to confirm your booking details.
+                confirmation happens after approval and deposit payment.
+                We&apos;ll contact you within 24 hours to confirm your booking
+                details.
               </p>
             </div>
           </div>

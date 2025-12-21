@@ -22,13 +22,16 @@ function ratelimit(ip: string) {
 // --- schema ---
 const schema = z.object({
   service: z.enum(SERVICES),
-  date: z.string().min(8),            // YYYY-MM-DD 或 YYYY/MM/DD
-  time: z.string().min(4),            // HH:mm
+  date: z.string().min(8), // YYYY-MM-DD 或 YYYY/MM/DD
+  time: z.string().min(4), // HH:mm
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(6),
   notes: z.string().optional().default(""),
-  company: z.string().optional(),     // 蜜罐
+  company: z.string().optional(), // 蜜罐
+  offer_code: z.string().optional(),
+  package_code: z.string().optional(),
+  addons: z.array(z.string()).optional(),
 });
 
 export async function POST(req: Request) {
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
     if (!ratelimit(ip)) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -57,6 +60,9 @@ export async function POST(req: Request) {
       email: data.email,
       phone: data.phone,
       notes: data.notes,
+      offer_code: data.offer_code,
+      package_code: data.package_code,
+      addons: data.addons,
     });
 
     if (!result.success) {
@@ -78,8 +84,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, id: result.data!.id });
   } catch (e: any) {
     console.error("[/api/book] error:", e);
-    const msg =
-      e?.issues ? JSON.stringify(e.issues) : e?.message || "Unknown error";
+    const msg = e?.issues
+      ? JSON.stringify(e.issues)
+      : e?.message || "Unknown error";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

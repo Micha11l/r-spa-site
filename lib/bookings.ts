@@ -20,6 +20,9 @@ export type CreateBookingParams = {
   email: string;
   phone: string;
   notes?: string;
+  offer_code?: string;
+  package_code?: string;
+  addons?: string[];
 };
 
 export type CreateBookingResult = {
@@ -34,6 +37,9 @@ export type CreateBookingResult = {
     customer_phone: string;
     notes: string | null;
     status: string;
+    offer_code: string | null;
+    package_code: string | null;
+    addons: string[] | null;
   };
   error?: string;
 };
@@ -42,9 +48,20 @@ export type CreateBookingResult = {
  * Shared booking creation logic (used by both public /api/book and admin routes)
  */
 export async function createBooking(
-  params: CreateBookingParams
+  params: CreateBookingParams,
 ): Promise<CreateBookingResult> {
-  const { service, date, time, name, email, phone, notes } = params;
+  const {
+    service,
+    date,
+    time,
+    name,
+    email,
+    phone,
+    notes,
+    offer_code,
+    package_code,
+    addons,
+  } = params;
 
   // Allow formats like 2025/10/22
   const dateNorm = date.replace(/[./]/g, "-");
@@ -92,6 +109,9 @@ export async function createBooking(
     customer_phone: phone,
     notes: notes || null,
     status: "pending" as const,
+    offer_code: offer_code || null,
+    package_code: package_code || null,
+    addons: addons || null,
   };
 
   const { data: inserted, error: insertError } = await supabaseAdmin
