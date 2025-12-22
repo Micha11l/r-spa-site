@@ -24,8 +24,8 @@ const OFFERS: Offer[] = [
   },
   {
     id: "giftcard-bonus",
-    title: "Buy $200 Gift Card → Get $25 Bonus",
-    description: "Purchase a $200 gift card and receive an extra $25 value",
+    title: "Buy $200 Gift Card → Get $20 Bonus",
+    description: "Purchase a $200 gift card and receive an extra $20 value",
     type: "giftcard",
     actionLabel: "Apply Offer",
   },
@@ -91,6 +91,7 @@ export default function ChristmasOfferFloating() {
     // Save to localStorage
     try {
       localStorage.setItem("christmas_offer_selected", offer.id);
+      window.dispatchEvent(new Event("offer:changed"));
       toast.success(`${offer.title} applied! 🎄`, {
         duration: 3000,
         icon: "🎁",
