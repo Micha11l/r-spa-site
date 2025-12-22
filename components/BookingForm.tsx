@@ -1,7 +1,8 @@
 // components/BookingForm.tsx
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { Check } from "lucide-react";
 import {
@@ -90,9 +91,10 @@ export default function BookingForm({
   );
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
-  // 2-stage massage selection
+  // Service selection (mutually exclusive)
   const [selectedMassageType, setSelectedMassageType] = useState<string | null>(null);
-  const [selectedMassageDuration, setSelectedMassageDuration] = useState<number | null>(null);
+  const [selectedMassageMinutes, setSelectedMassageMinutes] = useState<number | null>(null);
+  const [selectedTherapyService, setSelectedTherapyService] = useState<string | null>(null);
 
   // Mobile tab selection
   const [activeServiceTab, setActiveServiceTab] = useState<"massage" | "therapy">("massage");
@@ -100,8 +102,37 @@ export default function BookingForm({
   // Summary visibility for mobile
   const [showSummary, setShowSummary] = useState(false);
 
+  // Desktop detection (SSR-safe)
+  const [isDesktop, setIsDesktop] = useState(false);
+
   // Step navigation
   const [currentStep, setCurrentStep] = useState(1);
+
+  // Refs for scrolling to sections
+  const massageSectionRef = useRef<HTMLDivElement>(null);
+  const therapySectionRef = useRef<HTMLDivElement>(null);
+
+  // Switch functions for service type
+  const switchToMassage = () => {
+    setSelectedTherapyService(null);
+    setSelectedMassageType(null);
+    setSelectedMassageMinutes(null);
+    setActiveServiceTab("massage");
+    setTimeout(() => {
+      massageSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
+
+  const switchToTherapy = () => {
+    setSelectedMassageType(null);
+    setSelectedMassageMinutes(null);
+    setSelectedTherapyService(null);
+    setSelectedAddons([]); // Clear addons when switching to therapy
+    setActiveServiceTab("therapy");
+    setTimeout(() => {
+      therapySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
 
   const formErrors = useMemo(
     () => ({
@@ -165,8 +196,8 @@ export default function BookingForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Helper: construct service name from massage type + duration
-  const constructMassageServiceName = (type: string, duration: number): string => {
+  // Helper: construct service name from massage type + minutes
+  const constructMassageServiceName = (type: string, minutes: number): string => {
     const typeLabels: Record<string, string> = {
       "head": "Head Massage",
       "back-shoulders": "Back & Shoulders Massage",
@@ -175,18 +206,54 @@ export default function BookingForm({
       "lymphatic": "Lymphatic Drainage Massage",
     };
     const label = typeLabels[type] || "Massage";
-    return `${label} (${duration}m)`;
+    return `${label} (${minutes}m)`;
   };
 
-  // Effect: sync 2-stage selection when both type and duration are set
+  // Compute selectedServiceName (single source of truth)
+  const selectedServiceName = selectedTherapyService
+    ? selectedTherapyService
+    : (selectedMassageType && selectedMassageMinutes)
+      ? constructMassageServiceName(selectedMassageType, selectedMassageMinutes)
+      : null;
+
+  // Effect: sync selectedServiceName to form.service
   useEffect(() => {
-    if (selectedMassageType && selectedMassageDuration) {
-      const serviceName = constructMassageServiceName(selectedMassageType, selectedMassageDuration);
-      handleFieldChange("service", serviceName);
+    if (selectedServiceName) {
+      handleFieldChange("service", selectedServiceName);
       markTouched("service");
+    } else {
+      handleFieldChange("service", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMassageType, selectedMassageDuration]);
+  }, [selectedServiceName]);
+
+  // Effect: clear addons for 60/90-min massage (not eligible for paid addons)
+  useEffect(() => {
+    const service = getServiceByName(form.service);
+    const minutes = service?.minutes || 0;
+    const isMassage = form.service.toLowerCase().includes("massage");
+
+    // Clear addons if it's a 60/90-min massage (they should use packages)
+    if (isMassage && minutes >= 60) {
+      setSelectedAddons([]);
+    }
+  }, [form.service]);
+
+  // Effect: detect desktop (SSR-safe)
+  useEffect(() => {
+    const checkDesktop = () => {
+      if (typeof window !== "undefined") {
+        setIsDesktop(window.innerWidth >= 768);
+      }
+    };
+
+    checkDesktop();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", checkDesktop);
+      return () => window.removeEventListener("resize", checkDesktop);
+    }
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -231,7 +298,8 @@ export default function BookingForm({
       setSelectedOfferCode(null);
       setSelectedAddons([]);
       setSelectedMassageType(null);
-      setSelectedMassageDuration(null);
+      setSelectedMassageMinutes(null);
+      setSelectedTherapyService(null);
       setCurrentStep(1);
     } catch (e: any) {
       setErr(e.message);
@@ -254,6 +322,24 @@ export default function BookingForm({
   const hasDateTime = !!(form.date && form.time);
   const hasCustomerInfo = !!(form.name && form.email && form.phone);
 
+  // Get today's date in YYYY-MM-DD format (local time)
+  const todayDate = new Date().toISOString().split("T")[0];
+
+  // Check if selected datetime is in the past
+  const isDatetimeInPast = (): boolean => {
+    if (!form.date || !form.time) return false;
+    const selectedDatetime = new Date(`${form.date}T${form.time}`);
+    const now = new Date();
+    return selectedDatetime < now;
+  };
+
+  // Get minimum time for today (current time + 1 hour buffer)
+  const getMinTimeForToday = (): string => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1); // Add 1 hour buffer
+    return now.toTimeString().slice(0, 5); // HH:MM format
+  };
+
   // Step indicators
   const steps = [
     { label: "Service", completed: !!form.service },
@@ -264,8 +350,8 @@ export default function BookingForm({
 
   // Step validation
   const canProceedFromStep = (step: number): boolean => {
-    if (step === 1) return !!form.service;
-    if (step === 2) return hasDateTime;
+    if (step === 1) return !!selectedServiceName;
+    if (step === 2) return hasDateTime && !isDatetimeInPast();
     if (step === 3) return hasCustomerInfo;
     return false;
   };
@@ -382,7 +468,7 @@ export default function BookingForm({
                   onClick={() => setActiveServiceTab("massage")}
                   className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeServiceTab === "massage"
-                      ? "border-emerald-600 text-emerald-600"
+                      ? "border-zinc-900 text-zinc-900"
                       : "border-transparent text-zinc-600 hover:text-zinc-900"
                   }`}
                 >
@@ -393,7 +479,7 @@ export default function BookingForm({
                   onClick={() => setActiveServiceTab("therapy")}
                   className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeServiceTab === "therapy"
-                      ? "border-emerald-600 text-emerald-600"
+                      ? "border-zinc-900 text-zinc-900"
                       : "border-transparent text-zinc-600 hover:text-zinc-900"
                   }`}
                 >
@@ -402,11 +488,30 @@ export default function BookingForm({
               </div>
 
               {/* Massage Selection (2-stage) */}
-              {(activeServiceTab === "massage" || window.innerWidth >= 768) && (
-                <div className="space-y-4">
+              {(activeServiceTab === "massage" || isDesktop) && (
+                <div
+                  ref={massageSectionRef}
+                  className={`space-y-4 transition-opacity ${selectedTherapyService ? 'opacity-40' : ''}`}
+                >
                   <h4 className="text-sm font-semibold text-zinc-700 md:block hidden">
                     Massage Services
                   </h4>
+
+                  {selectedTherapyService && (
+                    <div className="flex items-center justify-between gap-3 bg-zinc-50 border border-zinc-200 rounded-lg p-3">
+                      <p className="text-xs text-zinc-700 flex-1">
+                        Therapy service selected.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={switchToMassage}
+                        className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-medium rounded-lg hover:bg-zinc-800 transition"
+                        aria-label="Switch to massage services"
+                      >
+                        Switch to Massage
+                      </button>
+                    </div>
+                  )}
 
                   {/* Stage A: Choose massage type */}
                   <div>
@@ -424,18 +529,19 @@ export default function BookingForm({
                             key={massageType.key}
                             type="button"
                             onClick={() => {
+                              setSelectedTherapyService(null);
                               setSelectedMassageType(massageType.key);
-                              setSelectedMassageDuration(null); // Reset duration when type changes
+                              setSelectedMassageMinutes(null);
                             }}
                             className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                               isSelected
-                                ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                                : "border-zinc-200 bg-white hover:border-emerald-300"
+                                ? "border-zinc-900 bg-zinc-50"
+                                : "border-zinc-200 bg-white hover:border-zinc-400"
                             }`}
                           >
                             {isSelected && (
                               <div className="absolute top-3 right-3">
-                                <div className="bg-emerald-600 rounded-full p-1">
+                                <div className="bg-zinc-900 rounded-full p-1">
                                   <Check className="h-4 w-4 text-white" />
                                 </div>
                               </div>
@@ -472,25 +578,28 @@ export default function BookingForm({
                           };
 
                           return durations.map((mins) => {
-                            const isSelected = selectedMassageDuration === mins;
+                            const isSelected = selectedMassageMinutes === mins;
                             const price = getPriceForDuration(mins);
 
                             return (
                               <button
                                 key={mins}
                                 type="button"
-                                onClick={() => setSelectedMassageDuration(mins)}
+                                onClick={() => {
+                                  setSelectedTherapyService(null);
+                                  setSelectedMassageMinutes(mins);
+                                }}
                                 className={`flex-1 min-w-[120px] rounded-xl border-2 p-4 transition-all ${
                                   isSelected
-                                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                                    : "border-zinc-200 bg-white hover:border-emerald-300"
+                                    ? "border-zinc-900 bg-zinc-50"
+                                    : "border-zinc-200 bg-white hover:border-zinc-400"
                                 }`}
                               >
                                 <div className="text-center">
                                   <div className="font-semibold text-base text-zinc-900">
                                     {mins} min
                                   </div>
-                                  <div className="text-lg font-bold text-emerald-600 mt-1">
+                                  <div className="text-lg font-bold text-zinc-900 mt-1">
                                     CA${price}
                                   </div>
                                 </div>
@@ -499,20 +608,45 @@ export default function BookingForm({
                           });
                         })()}
                       </div>
+                      {selectedMassageType && !selectedMassageMinutes && submitAttempted && (
+                        <p className="text-xs text-red-600 mt-2">
+                          Please select a duration to continue.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
               )}
 
               {/* Therapy Services */}
-              {(activeServiceTab === "therapy" || window.innerWidth >= 768) && SERVICES_BY_CATEGORY.therapy && (
-                <div className="space-y-3">
+              {(activeServiceTab === "therapy" || isDesktop) && SERVICES_BY_CATEGORY.therapy && (
+                <div
+                  ref={therapySectionRef}
+                  className={`space-y-3 transition-opacity ${selectedMassageType || selectedMassageMinutes ? 'opacity-40' : ''}`}
+                >
                   <h4 className="text-sm font-semibold text-zinc-700">
                     {CATEGORY_LABELS.therapy}
                   </h4>
+
+                  {(selectedMassageType || selectedMassageMinutes) && (
+                    <div className="flex items-center justify-between gap-3 bg-zinc-50 border border-zinc-200 rounded-lg p-3">
+                      <p className="text-xs text-zinc-700 flex-1">
+                        Massage service selected.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={switchToTherapy}
+                        className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-medium rounded-lg hover:bg-zinc-800 transition"
+                        aria-label="Switch to therapy services"
+                      >
+                        Switch to Therapy
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {SERVICES_BY_CATEGORY.therapy.map((service) => {
-                      const isSelected = form.service === service.name;
+                      const isSelected = selectedTherapyService === service.name;
                       const price = service.priceCents / 100;
 
                       return (
@@ -520,21 +654,19 @@ export default function BookingForm({
                           key={service.name}
                           type="button"
                           onClick={() => {
-                            handleFieldChange("service", service.name);
-                            markTouched("service");
-                            // Reset massage selection state when therapy is selected
+                            setSelectedTherapyService(service.name);
                             setSelectedMassageType(null);
-                            setSelectedMassageDuration(null);
+                            setSelectedMassageMinutes(null);
                           }}
                           className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                             isSelected
-                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                              : "border-zinc-200 bg-white hover:border-emerald-300"
+                              ? "border-zinc-900 bg-zinc-50"
+                              : "border-zinc-200 bg-white hover:border-zinc-400"
                           }`}
                         >
                           {isSelected && (
                             <div className="absolute top-3 right-3">
-                              <div className="bg-emerald-600 rounded-full p-1">
+                              <div className="bg-zinc-900 rounded-full p-1">
                                 <Check className="h-4 w-4 text-white" />
                               </div>
                             </div>
@@ -566,7 +698,7 @@ export default function BookingForm({
                   </h4>
                   <div className="grid gap-3">
                     {SERVICES_BY_CATEGORY.other.map((service) => {
-                      const isSelected = form.service === service.name;
+                      const isSelected = selectedTherapyService === service.name;
                       const price = service.priceCents / 100;
 
                       return (
@@ -574,20 +706,19 @@ export default function BookingForm({
                           key={service.name}
                           type="button"
                           onClick={() => {
-                            handleFieldChange("service", service.name);
-                            markTouched("service");
+                            setSelectedTherapyService(service.name);
                             setSelectedMassageType(null);
-                            setSelectedMassageDuration(null);
+                            setSelectedMassageMinutes(null);
                           }}
                           className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                             isSelected
-                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                              : "border-zinc-200 bg-white hover:border-emerald-300"
+                              ? "border-zinc-900 bg-zinc-50"
+                              : "border-zinc-200 bg-white hover:border-zinc-400"
                           }`}
                         >
                           {isSelected && (
                             <div className="absolute top-3 right-3">
-                              <div className="bg-emerald-600 rounded-full p-1">
+                              <div className="bg-zinc-900 rounded-full p-1">
                                 <Check className="h-4 w-4 text-white" />
                               </div>
                             </div>
@@ -620,6 +751,7 @@ export default function BookingForm({
                 id="booking-date"
                 type="date"
                 value={form.date}
+                min={todayDate}
                 lang="en-CA"
                 placeholder="YYYY-MM-DD"
                 onChange={(e) => handleFieldChange("date", e.target.value)}
@@ -648,6 +780,7 @@ export default function BookingForm({
                 id="booking-time"
                 type="time"
                 value={form.time}
+                min={form.date === todayDate ? getMinTimeForToday() : undefined}
                 onChange={(e) => handleFieldChange("time", e.target.value)}
                 onBlur={() => markTouched("time")}
                 required
@@ -663,6 +796,11 @@ export default function BookingForm({
                   className="mt-1 text-sm text-red-600"
                 >
                   {showFieldError("time")}
+                </p>
+              )}
+              {hasDateTime && isDatetimeInPast() && (
+                <p className="mt-1 text-sm text-red-600">
+                  Cannot book in the past. Please select a future date and time.
                 </p>
               )}
             </div>
@@ -768,143 +906,110 @@ export default function BookingForm({
             />
           </div>
 
-          {/* Add-ons Section */}
-          <div className="border-t border-zinc-200 pt-4">
-            {eligibleComplimentary ? (
-              <>
-                <h3 className="text-sm font-semibold text-zinc-900 mb-2">
-                  Complimentary Add-on
-                </h3>
-                <p className="text-xs text-zinc-600 mb-3">
-                  Choose one complimentary 30-min session (included with 60/90-min massage)
-                </p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
-                    <input
-                      type="radio"
-                      name="complimentary-addon"
-                      checked={selectedAddons.includes("sauna")}
-                      onChange={() => setSelectedAddons(["sauna"])}
-                      className="w-4 h-4 text-zinc-900"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900">
-                          Sauna Session
-                        </span>
-                        <span className="text-xs px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-full font-medium">
-                          FREE
-                        </span>
-                      </div>
-                      <p className="text-xs text-zinc-600">
-                        30 min · Relaxing sauna session
-                      </p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
-                    <input
-                      type="radio"
-                      name="complimentary-addon"
-                      checked={selectedAddons.includes("hot_tub")}
-                      onChange={() => setSelectedAddons(["hot_tub"])}
-                      className="w-4 h-4 text-zinc-900"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900">
-                          Hot Tub Session
-                        </span>
-                        <span className="text-xs px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-full font-medium">
-                          FREE
-                        </span>
-                      </div>
-                      <p className="text-xs text-zinc-600">
-                        30 min · Soothing hot tub session
-                      </p>
-                    </div>
-                  </label>
+          {/* Add-ons Section - only show for massage services */}
+          {isMassageService && (
+            <div className="border-t border-zinc-200 pt-4">
+              {selectedMinutes >= 60 ? (
+                // 60/90-min massage: Show package CTA instead of add-ons
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                  <p className="text-sm text-zinc-700 mb-3">
+                    Complimentary sauna/hot tub is available with packages.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href="/sign-up"
+                      className="inline-flex items-center px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition"
+                    >
+                      Create an account to purchase packages
+                    </Link>
+                    <Link
+                      href="/holiday-packages"
+                      className="inline-flex items-center px-4 py-2 border border-zinc-900 text-zinc-900 text-sm font-medium rounded-lg hover:bg-zinc-100 transition"
+                    >
+                      View packages
+                    </Link>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-sm font-semibold text-zinc-900 mb-2">
-                  Optional Add-ons
-                </h3>
-                <p className="text-xs text-zinc-600 mb-3">
-                  CA$45 per 30-min session
-                </p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedAddons.includes("sauna")}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedAddons([...selectedAddons, "sauna"]);
-                        } else {
-                          setSelectedAddons(
-                            selectedAddons.filter((a) => a !== "sauna"),
-                          );
-                        }
-                      }}
-                      className="w-4 h-4 text-zinc-900 rounded"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900">
-                          Sauna Session
-                        </span>
-                        <span className="text-xs text-zinc-500">CA$45</span>
+              ) : (
+                // 45-min massage: Show paid add-ons
+                <>
+                  <h3 className="text-sm font-semibold text-zinc-900 mb-2">
+                    Optional Add-ons
+                  </h3>
+                  <p className="text-xs text-zinc-600 mb-3">
+                    CA$45 per 30-min session
+                  </p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedAddons.includes("sauna")}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAddons([...selectedAddons, "sauna"]);
+                          } else {
+                            setSelectedAddons(
+                              selectedAddons.filter((a) => a !== "sauna"),
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 text-zinc-900 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-zinc-900">
+                            Sauna Session
+                          </span>
+                          <span className="text-xs text-zinc-500">CA$45</span>
+                        </div>
+                        <p className="text-xs text-zinc-600">
+                          30 min · Relaxing sauna session
+                        </p>
                       </div>
-                      <p className="text-xs text-zinc-600">
-                        30 min · Relaxing sauna session
-                      </p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedAddons.includes("hot_tub")}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedAddons([...selectedAddons, "hot_tub"]);
-                        } else {
-                          setSelectedAddons(
-                            selectedAddons.filter((a) => a !== "hot_tub"),
-                          );
-                        }
-                      }}
-                      className="w-4 h-4 text-zinc-900 rounded"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900">
-                          Hot Tub Session
-                        </span>
-                        <span className="text-xs text-zinc-500">CA$45</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedAddons.includes("hot_tub")}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAddons([...selectedAddons, "hot_tub"]);
+                          } else {
+                            setSelectedAddons(
+                              selectedAddons.filter((a) => a !== "hot_tub"),
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 text-zinc-900 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-zinc-900">
+                            Hot Tub Session
+                          </span>
+                          <span className="text-xs text-zinc-500">CA$45</span>
+                        </div>
+                        <p className="text-xs text-zinc-600">
+                          30 min · Soothing hot tub session
+                        </p>
                       </div>
-                      <p className="text-xs text-zinc-600">
-                        30 min · Soothing hot tub session
-                      </p>
-                    </div>
-                  </label>
-                </div>
-                {selectedMinutes === 45 && (
+                    </label>
+                  </div>
                   <div className="mt-3 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
                     <p className="text-xs text-zinc-700 mb-2">
-                      💡 Upgrade to 60 min to get 1 complimentary add-on
+                      💡 Upgrade to 60 min for complimentary add-on with packages
                     </p>
-                    <a
+                    <Link
                       href="/holiday-packages"
                       className="inline-flex items-center text-xs font-medium text-zinc-900 hover:underline"
                     >
                       View Packages →
-                    </a>
+                    </Link>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Offer Summary */}
           {selectedOfferCode && (
@@ -981,7 +1086,7 @@ export default function BookingForm({
                   {selectedAddons.length > 0 && (
                     <div>
                       <span className="font-medium text-zinc-700">Add-ons:</span>{" "}
-                      <span className="text-emerald-900">{selectedAddons.map(a => `➕ ${a}`).join(", ")}</span>
+                      <span className="text-zinc-900">{selectedAddons.map(a => `➕ ${a}`).join(", ")}</span>
                     </div>
                   )}
                   {selectedOfferCode && (
@@ -991,6 +1096,29 @@ export default function BookingForm({
                     </div>
                   )}
                 </div>
+
+                {/* Hint for 60/90-min massage about packages */}
+                {isMassageService && selectedMinutes >= 60 && (
+                  <div className="mt-3 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                    <p className="text-xs text-zinc-500">
+                      Want sauna/hot tub included? Packages require an account.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Link
+                        href="/sign-up"
+                        className="text-xs font-medium text-zinc-900 hover:underline"
+                      >
+                        Create account →
+                      </Link>
+                      <Link
+                        href="/holiday-packages"
+                        className="text-xs font-medium text-zinc-900 hover:underline"
+                      >
+                        View packages →
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button className="btn btn-primary w-full" disabled={loading}>
@@ -1144,9 +1272,9 @@ export default function BookingForm({
                       {selectedAddons.map((addon) => (
                         <div
                           key={addon}
-                          className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg"
+                          className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg"
                         >
-                          <p className="text-sm text-emerald-900">➕ {addon}</p>
+                          <p className="text-sm text-zinc-900">➕ {addon}</p>
                         </div>
                       ))}
                     </div>
@@ -1250,7 +1378,7 @@ export default function BookingForm({
                   </label>
                   <div className="mt-1 space-y-1">
                     {selectedAddons.map((addon) => (
-                      <p key={addon} className="text-emerald-900">
+                      <p key={addon} className="text-zinc-900">
                         ➕ {addon}
                       </p>
                     ))}
