@@ -176,6 +176,13 @@ export default function HolidayPackagesPage() {
             <span aria-hidden="true">→</span>
           </Link>
         </div>
+
+        {/* Alcohol Disclaimer */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-zinc-500">
+            * Alcoholic beverages are available upon request, but are not included in the packages.
+          </p>
+        </div>
       </div>
     </div>
   );
