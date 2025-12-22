@@ -19,7 +19,7 @@ type GiftCardForm = {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const createCard = (): GiftCardForm => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  amount: 1,
+  amount: 200,
   recipient_email: "",
   recipient_name: "",
   message: "",
@@ -53,7 +53,7 @@ export default function PurchaseGiftCardPage() {
   const showFieldError = (key: string, error: string) =>
     (touchedFields[key] || submitAttempted) && error ? error : "";
 
-  const presetAmounts = [1, 150, 200, 300, 500, 1000];
+  const presetAmounts = [200, 300, 500, 1000];
 
   // Add a new card
   const addCard = () => {
@@ -112,9 +112,9 @@ export default function PurchaseGiftCardPage() {
     () =>
       cards.map((card) => ({
         amount:
-          card.amount >= 1 && card.amount <= 10000
+          card.amount >= 200 && card.amount <= 10000
             ? ""
-            : "Amount must be between $1 and $10,000.",
+            : "Amount must be between $200 and $10,000.",
         recipient_name:
           card.isGift && !card.recipient_name.trim()
             ? "Recipient name is required for gifts."
@@ -384,13 +384,13 @@ export default function PurchaseGiftCardPage() {
                       type="number"
                       value={card.amount}
                       onChange={(e) =>
-                        updateCard(index, "amount", parseInt(e.target.value, 10) || 1)
+                        updateCard(index, "amount", parseInt(e.target.value, 10) || 200)
                       }
                       onBlur={() => touchField(amountKey)}
-                      min={1}
+                      min={200}
                       max={10000}
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Custom amount (min $1)"
+                      placeholder="Custom amount (min $200)"
                       aria-invalid={Boolean(amountError)}
                       aria-describedby={amountError ? `${amountKey}-error` : undefined}
                     />

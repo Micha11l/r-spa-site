@@ -56,8 +56,18 @@ export default function AmenitiesPage() {
 
           <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
             <div className="rounded-xl border p-5">
-              <div className="font-medium">Sauna</div>
-              <ul className="mt-3 space-y-2 text-zinc-700 list-disc list-inside">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="font-medium text-lg">Sauna</div>
+                  <div className="text-sm text-zinc-500 mt-1">30 min</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-semibold text-emerald-600">
+                    CA$45
+                  </div>
+                </div>
+              </div>
+              <ul className="space-y-2 text-zinc-700 list-disc list-inside">
                 <li>Warmth helps loosen tension before a session.</li>
                 <li>Encourages circulation and deep breathing.</li>
                 <li>Great in contrast with a cool rinse.</li>
@@ -65,12 +75,53 @@ export default function AmenitiesPage() {
             </div>
 
             <div className="rounded-xl border p-5">
-              <div className="font-medium">Hot Tub</div>
-              <ul className="mt-3 space-y-2 text-zinc-700 list-disc list-inside">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="font-medium text-lg">Hot Tub</div>
+                  <div className="text-sm text-zinc-500 mt-1">30 min</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-semibold text-emerald-600">
+                    CA$45
+                  </div>
+                </div>
+              </div>
+              <ul className="space-y-2 text-zinc-700 list-disc list-inside">
                 <li>Full-body soak for calm and comfort.</li>
                 <li>Pairs well with spa or light sessions.</li>
                 <li>Unwind with a few quiet minutes on your own.</li>
               </ul>
+            </div>
+          </div>
+
+          {/* Massage Package Note */}
+          <div className="mt-8 rounded-xl bg-emerald-50 border-2 border-emerald-200 p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg
+                  className="h-5 w-5 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-emerald-900 mb-1">
+                  Included Free with Massage
+                </h3>
+                <p className="text-sm text-emerald-800 leading-relaxed">
+                  Sauna and Hot Tub sessions are included complimentary with any 60 or 90-minute massage booking.
+                  This applies to our current massage services and select packages.
+                  Ask our staff for details when booking.
+                </p>
+              </div>
             </div>
           </div>
 
