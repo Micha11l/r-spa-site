@@ -59,6 +59,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate booking is not in the past
+    const bookingDatetime = new Date(`${data.date}T${data.time}`);
+    const now = new Date();
+    if (bookingDatetime < now) {
+      return NextResponse.json(
+        { error: "booking_in_past" },
+        { status: 400 }
+      );
+    }
+
     // Use shared booking creation logic
     const result = await createBooking({
       service: data.service,
