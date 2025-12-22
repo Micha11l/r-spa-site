@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendBookingEmails } from "@/lib/emails";
-import { SERVICES } from "@/lib/services.catalog";
+import { SERVICES, isServiceAvailable } from "@/lib/services.catalog";
 import { createBooking } from "@/lib/bookings";
 
 export const runtime = "nodejs";
@@ -50,6 +50,14 @@ export async function POST(req: Request) {
     if (body?.company) return NextResponse.json({ ok: true }); // 蜜罐
 
     const data = schema.parse(body);
+
+    // Additional validation: ensure service is available
+    if (!isServiceAvailable(data.service)) {
+      return NextResponse.json(
+        { error: "service_unavailable" },
+        { status: 400 }
+      );
+    }
 
     // Use shared booking creation logic
     const result = await createBooking({

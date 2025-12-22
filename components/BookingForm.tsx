@@ -4,7 +4,14 @@ import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Check } from "lucide-react";
-import { SERVICES, DURATIONS, PRICES } from "@/lib/services.catalog";
+import {
+  SERVICES,
+  DURATIONS,
+  PRICES,
+  SERVICES_BY_CATEGORY,
+  CATEGORY_LABELS,
+  MASSAGE_CATEGORIES,
+} from "@/lib/services.catalog";
 
 type FormState = {
   service: string;
@@ -16,39 +23,6 @@ type FormState = {
   notes?: string;
   company?: string; // 蜜罐
 };
-
-type HolidayPackage = {
-  id: string;
-  name: string;
-  tagline: string;
-  includes: string[];
-  queryParam: string;
-};
-
-const HOLIDAY_PACKAGES: HolidayPackage[] = [
-  {
-    id: "winter-glow",
-    name: "Winter Glow",
-    tagline: "Complete relaxation experience",
-    includes: [
-      "60-minute Full Body Massage",
-      "30-minute Private Sauna Session",
-      "30-minute Hot Tub Relaxation",
-    ],
-    queryParam: "winter_glow",
-  },
-  {
-    id: "couples-retreat",
-    name: "Couples' Holiday Retreat",
-    tagline: "Share the wellness together",
-    includes: [
-      "Private Hot Tub Session for Two",
-      "Festive Seasonal Treats",
-      "Non-Alcoholic Sparkling Beverages",
-    ],
-    queryParam: "couples_retreat",
-  },
-];
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const createInitialFormState = (): FormState => ({
@@ -101,9 +75,6 @@ export default function BookingForm({
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Structured metadata state
-  const [selectedPackageCode, setSelectedPackageCode] = useState<string | null>(
-    null,
-  );
   const [selectedOfferCode, setSelectedOfferCode] = useState<string | null>(
     null,
   );
@@ -141,20 +112,8 @@ export default function BookingForm({
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  // Handle URL package parameter and localStorage offer
+  // Handle localStorage offer
   useEffect(() => {
-    // Check for package param in URL
-    const packageParam = searchParams?.get("package");
-    if (packageParam) {
-      const pkg = HOLIDAY_PACKAGES.find((p) => p.queryParam === packageParam);
-      if (pkg) {
-        setSelectedPackageCode(packageParam);
-        toast.success(`${pkg.name} package selected! 🎁`, {
-          duration: 4000,
-        });
-      }
-    }
-
     // Load offer from localStorage
     const loadOffer = () => {
       try {
@@ -208,7 +167,6 @@ export default function BookingForm({
         body: JSON.stringify({
           ...form,
           offer_code: selectedOfferCode || undefined,
-          package_code: selectedPackageCode || undefined,
           addons: selectedAddons.length > 0 ? selectedAddons : undefined,
         }),
       });
@@ -230,7 +188,6 @@ export default function BookingForm({
       setForm(createInitialFormState());
       setTouched(createTouchedState());
       setSubmitAttempted(false);
-      setSelectedPackageCode(null);
       setSelectedOfferCode(null);
       setSelectedAddons([]);
       setCurrentStep(1);
@@ -247,9 +204,6 @@ export default function BookingForm({
     form.service.toLowerCase().includes("spa");
 
   // Computed values for summary
-  const selectedPackage = HOLIDAY_PACKAGES.find(
-    (p) => p.queryParam === selectedPackageCode,
-  );
   const hasDateTime = !!(form.date && form.time);
   const hasCustomerInfo = !!(form.name && form.email && form.phone);
 
@@ -350,53 +304,165 @@ export default function BookingForm({
 
           {/* Step 1: Service Selection */}
           {currentStep === 1 && (
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-900 mb-3">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-zinc-900">
                 Choose Your Service
               </h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {SERVICES.map((service) => {
-                  const isSelected = form.service === service;
-                  const duration = DURATIONS[service];
-                  const price = PRICES[service];
 
-                  return (
-                    <button
-                      key={service}
-                      type="button"
-                      onClick={() => {
-                        handleFieldChange("service", service);
-                        markTouched("service");
-                      }}
-                      className={`relative text-left rounded-xl border-2 p-4 transition-all ${
-                        isSelected
-                          ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                          : "border-zinc-200 bg-white hover:border-emerald-300"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute top-3 right-3">
-                          <div className="bg-emerald-600 rounded-full p-1">
-                            <Check className="h-4 w-4 text-white" />
+              {/* Massage Categories */}
+              {MASSAGE_CATEGORIES.map((category) => {
+                const services = SERVICES_BY_CATEGORY[category] || [];
+                if (services.length === 0) return null;
+
+                return (
+                  <div key={category} className="space-y-3">
+                    <h4 className="text-sm font-semibold text-zinc-700">
+                      {CATEGORY_LABELS[category]}
+                    </h4>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {services.map((service) => {
+                        const isSelected = form.service === service.name;
+                        const price = service.priceCents / 100;
+
+                        return (
+                          <button
+                            key={service.name}
+                            type="button"
+                            onClick={() => {
+                              handleFieldChange("service", service.name);
+                              markTouched("service");
+                            }}
+                            className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                                : "border-zinc-200 bg-white hover:border-emerald-300"
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="absolute top-3 right-3">
+                                <div className="bg-emerald-600 rounded-full p-1">
+                                  <Check className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="pr-8">
+                              <div className="font-semibold text-base text-zinc-900 mb-1">
+                                {service.minutes} min
+                              </div>
+                              <div className="text-lg font-bold text-emerald-600">
+                                CA${price}
+                              </div>
+                              {service.description && (
+                                <p className="text-xs text-zinc-500 mt-2">
+                                  {service.description}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Therapy Services */}
+              {SERVICES_BY_CATEGORY.therapy && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-zinc-700">
+                    {CATEGORY_LABELS.therapy}
+                  </h4>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {SERVICES_BY_CATEGORY.therapy.map((service) => {
+                      const isSelected = form.service === service.name;
+                      const price = service.priceCents / 100;
+
+                      return (
+                        <button
+                          key={service.name}
+                          type="button"
+                          onClick={() => {
+                            handleFieldChange("service", service.name);
+                            markTouched("service");
+                          }}
+                          className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                              : "border-zinc-200 bg-white hover:border-emerald-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-3 right-3">
+                              <div className="bg-emerald-600 rounded-full p-1">
+                                <Check className="h-4 w-4 text-white" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="pr-8">
+                            <h5 className="font-semibold text-sm text-zinc-900 mb-1">
+                              {service.name}
+                            </h5>
+                            <div className="flex items-center gap-2 text-xs text-zinc-600">
+                              <span>{service.minutes} min</span>
+                              <span>•</span>
+                              <span className="font-medium text-zinc-900">
+                                {price > 0 ? `CA$${price}` : "Custom pricing"}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      <div className="pr-8">
-                        <h4 className="font-semibold text-sm text-zinc-900 mb-1">
-                          {service}
-                        </h4>
-                        <div className="flex items-center gap-2 text-xs text-zinc-600">
-                          <span>{duration} min</span>
-                          <span>•</span>
-                          <span className="font-medium text-zinc-900">
-                            {price > 0 ? `CA$${price}` : "Custom pricing"}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Other Services */}
+              {SERVICES_BY_CATEGORY.other && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-zinc-700">
+                    {CATEGORY_LABELS.other}
+                  </h4>
+                  <div className="grid gap-3">
+                    {SERVICES_BY_CATEGORY.other.map((service) => {
+                      const isSelected = form.service === service.name;
+                      const price = service.priceCents / 100;
+
+                      return (
+                        <button
+                          key={service.name}
+                          type="button"
+                          onClick={() => {
+                            handleFieldChange("service", service.name);
+                            markTouched("service");
+                          }}
+                          className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                              : "border-zinc-200 bg-white hover:border-emerald-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-3 right-3">
+                              <div className="bg-emerald-600 rounded-full p-1">
+                                <Check className="h-4 w-4 text-white" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="pr-8">
+                            <h5 className="font-semibold text-sm text-zinc-900 mb-1">
+                              {service.name}
+                            </h5>
+                            <div className="text-xs text-zinc-600">
+                              {price > 0 ? `CA$${price}` : "Inquiry only"}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -559,69 +625,6 @@ export default function BookingForm({
             />
           </div>
 
-          {/* Holiday Packages Section */}
-          <div className="border-t border-zinc-200 pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-zinc-900">
-                Holiday Packages
-              </h3>
-              <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">
-                Limited time
-              </span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {HOLIDAY_PACKAGES.map((pkg) => {
-                const isSelected = selectedPackageCode === pkg.queryParam;
-                return (
-                  <div
-                    key={pkg.id}
-                    className={`rounded-lg border-2 p-3 transition-all cursor-pointer ${
-                      isSelected
-                        ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                        : isMassageService
-                          ? "border-emerald-300 bg-emerald-50"
-                          : "border-zinc-200 bg-white hover:border-emerald-400"
-                    }`}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedPackageCode(null);
-                        toast.success("Package removed");
-                      } else {
-                        setSelectedPackageCode(pkg.queryParam);
-                        toast.success(`${pkg.name} selected! 🎁`);
-                      }
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <h4 className="font-semibold text-sm text-zinc-900">
-                        {pkg.name}
-                      </h4>
-                      {isSelected && (
-                        <span className="text-emerald-600 text-sm">✓</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-600 mb-2">{pkg.tagline}</p>
-                    <ul className="space-y-1">
-                      {pkg.includes.map((item, index) => (
-                        <li
-                          key={index}
-                          className="flex items-start gap-1.5 text-xs text-zinc-700"
-                        >
-                          <span className="text-emerald-600 mt-0.5">✓</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-zinc-500 mt-2">
-              * Alcoholic beverages are available upon request, but are not included in the packages.
-            </p>
-          </div>
-
           {/* Add-ons Section */}
           <div className="border-t border-zinc-200 pt-4">
             <h3 className="text-sm font-semibold text-zinc-900 mb-3">
@@ -768,12 +771,6 @@ export default function BookingForm({
                     <div>
                       <span className="font-medium text-zinc-700">Notes:</span>{" "}
                       <span className="text-zinc-900">{form.notes}</span>
-                    </div>
-                  )}
-                  {selectedPackage && (
-                    <div>
-                      <span className="font-medium text-zinc-700">Package:</span>{" "}
-                      <span className="text-blue-900 font-medium">📦 {selectedPackage.name}</span>
                     </div>
                   )}
                   {selectedAddons.length > 0 && (
@@ -932,20 +929,6 @@ export default function BookingForm({
                   </div>
                 )}
 
-                {/* Package */}
-                {selectedPackage && (
-                  <div>
-                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
-                      Holiday Package
-                    </label>
-                    <div className="mt-1 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm font-medium text-blue-900">
-                        📦 {selectedPackage.name}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 {/* Add-ons */}
                 {selectedAddons.length > 0 && (
                   <div>
@@ -1051,17 +1034,6 @@ export default function BookingForm({
                       year: "numeric",
                     })}{" "}
                     at {form.time}
-                  </p>
-                </div>
-              )}
-
-              {selectedPackage && (
-                <div>
-                  <label className="text-xs font-medium text-zinc-500 uppercase">
-                    Package
-                  </label>
-                  <p className="text-sm font-medium text-blue-900 mt-1">
-                    📦 {selectedPackage.name}
                   </p>
                 </div>
               )}
