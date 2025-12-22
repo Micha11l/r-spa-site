@@ -4,9 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Spa Treatments",
+  title: "Spa & Massage Treatments",
   description:
-    "Head, back & shoulders, full body, and hot-stone spa treatments. Transparent pricing in Keswick / Toronto.",
+    "Head, back & shoulders, full body, lymphatic drainage, and foot massage treatments. Transparent pricing in Keswick / Toronto.",
   alternates: { canonical: "/spa" },
 };
 
@@ -42,7 +42,8 @@ const SPA_MENU = [
   { name: "Head", mins: 45, price: 110, desc: "Scalp-focused session with neck relief." },
   { name: "Back & Shoulders", mins: 60, price: 130, desc: "Back tension relief, posture-friendly." },
   { name: "Full Body", mins: 90, price: 160, desc: "Slow, balanced flow for full relaxation." },
-  { name: "Hot Stone", mins: 75, price: 150, desc: "Heated stones for deeper, soothing warmth." },
+  { name: "Lymphatic Drainage", mins: 90, price: 160, desc: "Gentle massage to support natural detoxification." },
+  { name: "Foot Massage", mins: 45, price: 90, desc: "Focused foot and lower leg relaxation." },
 ];
 
 export default function SpaPage() {

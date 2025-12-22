@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import { Check } from "lucide-react";
+import { SERVICES, DURATIONS, PRICES } from "@/lib/services.catalog";
 
 type FormState = {
   service: string;
@@ -14,29 +16,6 @@ type FormState = {
   notes?: string;
   company?: string; // 蜜罐
 };
-
-const SERVICES = [
-  // Therapies
-  "Seqex Session (27m)",
-  "Seqex Session – Double (58m)",
-  "Seqex Personalized Test (80m)",
-  "Personalized Test & Card (80m)",
-  "ICR Treatment (12m)",
-  "Amygdala Flush (custom)",
-  "Special Treatment (custom)",
-  "RX1 Seat (20m)",
-  "Vitamin D UVB (4m)",
-  "LifeForce (60m)",
-
-  // Spa
-  "Spa – Head (45m)",
-  "Spa – Back & Shoulders (60m)",
-  "Spa – Full Body (90m)",
-  "Spa – Hot Stone (75m)",
-
-  // Other
-  "Private Event / Party (inquiry only)",
-] as const;
 
 type HolidayPackage = {
   id: string;
@@ -372,22 +351,52 @@ export default function BookingForm({
           {/* Step 1: Service Selection */}
           {currentStep === 1 && (
             <div>
-              <label className="block text-sm mb-1" htmlFor="booking-service">
-                Service
-              </label>
-              <select
-                id="booking-service"
-                value={form.service}
-                onChange={(e) => handleFieldChange("service", e.target.value)}
-                onBlur={() => markTouched("service")}
-                className="w-full rounded-md border px-3 py-2"
-              >
-                {SERVICES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <h3 className="text-sm font-semibold text-zinc-900 mb-3">
+                Choose Your Service
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {SERVICES.map((service) => {
+                  const isSelected = form.service === service;
+                  const duration = DURATIONS[service];
+                  const price = PRICES[service];
+
+                  return (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => {
+                        handleFieldChange("service", service);
+                        markTouched("service");
+                      }}
+                      className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                          : "border-zinc-200 bg-white hover:border-emerald-300"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-3 right-3">
+                          <div className="bg-emerald-600 rounded-full p-1">
+                            <Check className="h-4 w-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="pr-8">
+                        <h4 className="font-semibold text-sm text-zinc-900 mb-1">
+                          {service}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs text-zinc-600">
+                          <span>{duration} min</span>
+                          <span>•</span>
+                          <span className="font-medium text-zinc-900">
+                            {price > 0 ? `CA$${price}` : "Custom pricing"}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -635,9 +644,16 @@ export default function BookingForm({
                   className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                 />
                 <div className="flex-1">
-                  <span className="text-sm font-medium text-zinc-900">
-                    Sauna Session
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-900">
+                      Sauna Session
+                    </span>
+                    {isMassageService && (
+                      <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                        FREE with massage
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-600">
                     Add a relaxing sauna session
                   </p>
@@ -659,15 +675,27 @@ export default function BookingForm({
                   className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                 />
                 <div className="flex-1">
-                  <span className="text-sm font-medium text-zinc-900">
-                    Hot Tub Session
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-900">
+                      Hot Tub Session
+                    </span>
+                    {isMassageService && (
+                      <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                        FREE with massage
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-600">
                     Add a soothing hot tub session
                   </p>
                 </div>
               </label>
             </div>
+            {isMassageService && (
+              <p className="text-xs text-zinc-500 mt-3">
+                Comparable spas often charge extra (e.g., ~CA$35 / 30 min) — included for free with any massage booking.
+              </p>
+            )}
           </div>
 
           {/* Offer Summary */}
