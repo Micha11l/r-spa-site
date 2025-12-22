@@ -241,9 +241,14 @@ export default function BookingForm({
   }
 
   const gapClass = compact ? "gap-3" : "gap-4";
+
+  // Get service details for add-ons eligibility
+  const selectedService = getServiceByName(form.service);
+  const selectedMinutes = selectedService?.minutes || 0;
   const isMassageService =
     form.service.toLowerCase().includes("massage") ||
     form.service.toLowerCase().includes("spa");
+  const eligibleComplimentary = isMassageService && selectedMinutes >= 60;
 
   // Computed values for summary
   const hasDateTime = !!(form.date && form.time);
@@ -765,77 +770,139 @@ export default function BookingForm({
 
           {/* Add-ons Section */}
           <div className="border-t border-zinc-200 pt-4">
-            <h3 className="text-sm font-semibold text-zinc-900 mb-3">
-              Optional Add-ons
-            </h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-emerald-400 transition cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedAddons.includes("sauna")}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedAddons([...selectedAddons, "sauna"]);
-                    } else {
-                      setSelectedAddons(
-                        selectedAddons.filter((a) => a !== "sauna"),
-                      );
-                    }
-                  }}
-                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-900">
-                      Sauna Session
-                    </span>
-                    {isMassageService && (
-                      <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
-                        FREE with massage
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-zinc-600">
-                    Add a relaxing sauna session
-                  </p>
+            {eligibleComplimentary ? (
+              <>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-2">
+                  Complimentary Add-on
+                </h3>
+                <p className="text-xs text-zinc-600 mb-3">
+                  Choose one complimentary 30-min session (included with 60/90-min massage)
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                    <input
+                      type="radio"
+                      name="complimentary-addon"
+                      checked={selectedAddons.includes("sauna")}
+                      onChange={() => setSelectedAddons(["sauna"])}
+                      className="w-4 h-4 text-zinc-900"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-900">
+                          Sauna Session
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-full font-medium">
+                          FREE
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-600">
+                        30 min · Relaxing sauna session
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                    <input
+                      type="radio"
+                      name="complimentary-addon"
+                      checked={selectedAddons.includes("hot_tub")}
+                      onChange={() => setSelectedAddons(["hot_tub"])}
+                      className="w-4 h-4 text-zinc-900"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-900">
+                          Hot Tub Session
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-full font-medium">
+                          FREE
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-600">
+                        30 min · Soothing hot tub session
+                      </p>
+                    </div>
+                  </label>
                 </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-emerald-400 transition cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedAddons.includes("hot_tub")}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedAddons([...selectedAddons, "hot_tub"]);
-                    } else {
-                      setSelectedAddons(
-                        selectedAddons.filter((a) => a !== "hot_tub"),
-                      );
-                    }
-                  }}
-                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-900">
-                      Hot Tub Session
-                    </span>
-                    {isMassageService && (
-                      <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
-                        FREE with massage
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-zinc-600">
-                    Add a soothing hot tub session
-                  </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-2">
+                  Optional Add-ons
+                </h3>
+                <p className="text-xs text-zinc-600 mb-3">
+                  CA$45 per 30-min session
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedAddons.includes("sauna")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAddons([...selectedAddons, "sauna"]);
+                        } else {
+                          setSelectedAddons(
+                            selectedAddons.filter((a) => a !== "sauna"),
+                          );
+                        }
+                      }}
+                      className="w-4 h-4 text-zinc-900 rounded"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-900">
+                          Sauna Session
+                        </span>
+                        <span className="text-xs text-zinc-500">CA$45</span>
+                      </div>
+                      <p className="text-xs text-zinc-600">
+                        30 min · Relaxing sauna session
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-zinc-200 hover:border-zinc-400 transition cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedAddons.includes("hot_tub")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAddons([...selectedAddons, "hot_tub"]);
+                        } else {
+                          setSelectedAddons(
+                            selectedAddons.filter((a) => a !== "hot_tub"),
+                          );
+                        }
+                      }}
+                      className="w-4 h-4 text-zinc-900 rounded"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-900">
+                          Hot Tub Session
+                        </span>
+                        <span className="text-xs text-zinc-500">CA$45</span>
+                      </div>
+                      <p className="text-xs text-zinc-600">
+                        30 min · Soothing hot tub session
+                      </p>
+                    </div>
+                  </label>
                 </div>
-              </label>
-            </div>
-            {isMassageService && (
-              <p className="text-xs text-zinc-500 mt-3">
-                Comparable spas often charge extra (e.g., ~CA$35 / 30 min) — included for free with any massage booking.
-              </p>
+                {selectedMinutes === 45 && (
+                  <div className="mt-3 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                    <p className="text-xs text-zinc-700 mb-2">
+                      💡 Upgrade to 60 min to get 1 complimentary add-on
+                    </p>
+                    <a
+                      href="/holiday-packages"
+                      className="inline-flex items-center text-xs font-medium text-zinc-900 hover:underline"
+                    >
+                      View Packages →
+                    </a>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
