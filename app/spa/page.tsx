@@ -39,11 +39,50 @@ function PageHeader() {
 }
 
 const SPA_MENU = [
-  { name: "Head", mins: 45, price: 110, desc: "Scalp-focused session with neck relief." },
-  { name: "Back & Shoulders", mins: 60, price: 130, desc: "Back tension relief, posture-friendly." },
-  { name: "Full Body", mins: 90, price: 160, desc: "Slow, balanced flow for full relaxation." },
-  { name: "Lymphatic Drainage", mins: 90, price: 160, desc: "Gentle massage to support natural detoxification." },
-  { name: "Foot Massage", mins: 45, price: 90, desc: "Focused foot and lower leg relaxation." },
+  {
+    category: "Head Massage",
+    options: [
+      { mins: 45, price: 75 },
+      { mins: 60, price: 100 },
+      { mins: 90, price: 150 },
+    ],
+    desc: "Scalp-focused session with neck relief",
+  },
+  {
+    category: "Back & Shoulders Massage",
+    options: [
+      { mins: 45, price: 75 },
+      { mins: 60, price: 100 },
+      { mins: 90, price: 150 },
+    ],
+    desc: "Back tension relief, posture-friendly",
+  },
+  {
+    category: "Foot Massage",
+    options: [
+      { mins: 45, price: 75 },
+      { mins: 60, price: 100 },
+      { mins: 90, price: 150 },
+    ],
+    desc: "Focused foot and lower leg relaxation",
+  },
+  {
+    category: "Full Body Massage",
+    options: [
+      { mins: 45, price: 75 },
+      { mins: 60, price: 100 },
+      { mins: 90, price: 150 },
+    ],
+    desc: "Slow, balanced flow for full relaxation",
+  },
+  {
+    category: "Lymphatic Drainage Massage",
+    options: [
+      { mins: 60, price: 130 },
+      { mins: 90, price: 160 },
+    ],
+    desc: "Gentle massage to support natural detoxification",
+  },
 ];
 
 export default function SpaPage() {
@@ -62,14 +101,25 @@ export default function SpaPage() {
             </h2>
           </header>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SPA_MENU.map((s) => (
-              <div key={s.name} className="rounded-xl border p-5">
-                <div className="font-medium">{`Spa — ${s.name}`}</div>
-                <div className="mt-2 text-zinc-600">{s.desc}</div>
-                <div className="mt-4">
-                  <div className="text-sm text-zinc-500">{s.mins} min</div>
-                  <div className="text-xl font-semibold">${s.price} CAD</div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {SPA_MENU.map((category) => (
+              <div key={category.category} className="rounded-xl border p-5">
+                <div className="font-medium text-lg">{category.category}</div>
+                <div className="mt-2 text-sm text-zinc-600">{category.desc}</div>
+                <div className="mt-4 space-y-2">
+                  {category.options.map((opt) => (
+                    <div
+                      key={opt.mins}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-sm text-zinc-600">
+                        {opt.mins} min
+                      </span>
+                      <span className="font-semibold text-emerald-600">
+                        ${opt.price} CAD
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
