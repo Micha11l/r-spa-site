@@ -22,7 +22,7 @@ function PageHeader() {
           sizes="100vw"
           priority
         />
-        <div className="absolute inset-0 bg-black/35" />
+        <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
           <div>
             <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white">
@@ -38,52 +38,78 @@ function PageHeader() {
   );
 }
 
-const SPA_MENU = [
+const STANDARD_MASSAGES = [
   {
-    category: "Head Massage",
-    options: [
-      { mins: 45, price: 75 },
-      { mins: 60, price: 100 },
-      { mins: 90, price: 150 },
-    ],
-    desc: "Scalp-focused session with neck relief",
+    title: "Head Massage",
+    description: "Scalp-focused session with neck relief",
   },
   {
-    category: "Back & Shoulders Massage",
-    options: [
-      { mins: 45, price: 75 },
-      { mins: 60, price: 100 },
-      { mins: 90, price: 150 },
-    ],
-    desc: "Back tension relief, posture-friendly",
+    title: "Back & Shoulders Massage",
+    description: "Back tension relief, posture-friendly",
   },
   {
-    category: "Foot Massage",
-    options: [
-      { mins: 45, price: 75 },
-      { mins: 60, price: 100 },
-      { mins: 90, price: 150 },
-    ],
-    desc: "Focused foot and lower leg relaxation",
+    title: "Foot Massage",
+    description: "Focused foot and lower leg relaxation",
   },
   {
-    category: "Full Body Massage",
-    options: [
-      { mins: 45, price: 75 },
-      { mins: 60, price: 100 },
-      { mins: 90, price: 150 },
-    ],
-    desc: "Slow, balanced flow for full relaxation",
+    title: "Full Body Massage",
+    description: "Slow, balanced flow for full relaxation",
   },
-  {
-    category: "Lymphatic Drainage Massage",
-    options: [
-      { mins: 60, price: 130 },
-      { mins: 90, price: 160 },
-    ],
-    desc: "Gentle massage to support natural detoxification",
-  },
-];
+] as const;
+
+function SectionHeader({
+  kicker,
+  title,
+  subtitle,
+}: {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <header className="mb-8">
+      <div className="text-[11px] tracking-[0.22em] text-zinc-500 uppercase font-semibold">
+        {kicker}
+      </div>
+      <h2 className="mt-3 font-serif text-3xl sm:text-4xl md:text-5xl text-zinc-950">
+        {title}
+      </h2>
+      {subtitle ? (
+        <p className="mt-3 text-sm sm:text-base text-zinc-600 max-w-3xl leading-relaxed">
+          {subtitle}
+        </p>
+      ) : null}
+    </header>
+  );
+}
+
+function UnifiedPricingBar() {
+  return (
+    <div className="mb-10 rounded-2xl border border-zinc-200 bg-white">
+      <div className="px-5 sm:px-6 py-4 sm:py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-zinc-600">
+            <span className="font-medium text-zinc-950">Standard Massage Pricing</span>
+            <span className="hidden sm:inline"> · </span>
+            <span className="block sm:inline">Pick your time, we’ll do the rest.</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-zinc-950 font-semibold">
+              45 min <span className="ml-2 font-normal text-zinc-700">CA$75</span>
+            </span>
+            <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-zinc-950 font-semibold">
+              60 min <span className="ml-2 font-normal text-zinc-700">CA$100</span>
+            </span>
+            <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-zinc-950 font-semibold">
+              90 min <span className="ml-2 font-normal text-zinc-700">CA$150</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SpaPage() {
   return (
@@ -91,58 +117,97 @@ export default function SpaPage() {
       <PageHeader />
 
       <section className="py-10 sm:py-14 lg:py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <header className="mb-6 sm:mb-8">
-            <div className="text-xs tracking-widest text-zinc-500 uppercase">
-              Menu & Pricing
-            </div>
-            <h2 className="mt-1 font-serif text-2xl sm:text-3xl md:text-4xl">
-              Pick your time, we’ll do the rest
-            </h2>
-          </header>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Section A */}
+          <div className="mb-16">
+            <SectionHeader
+              kicker="Essential Care"
+              title="Standard Massage"
+              subtitle="Four classic options with a consistent price structure. Choose the area that matches how you feel today."
+            />
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SPA_MENU.map((category) => (
-              <div key={category.category} className="rounded-xl border p-5">
-                <div className="font-medium text-lg">{category.category}</div>
-                <div className="mt-2 text-sm text-zinc-600">{category.desc}</div>
-                <div className="mt-4 space-y-2">
-                  {category.options.map((opt) => (
-                    <div
-                      key={opt.mins}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-sm text-zinc-600">
-                        {opt.mins} min
-                      </span>
-                      <span className="font-semibold text-emerald-600">
-                        ${opt.price} CAD
-                      </span>
-                    </div>
-                  ))}
+            <UnifiedPricingBar />
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {STANDARD_MASSAGES.map((m) => (
+                <div
+                  key={m.title}
+                  className="rounded-2xl border border-zinc-200 bg-white p-6 transition-colors hover:border-zinc-300"
+                >
+                  <h3 className="font-semibold text-base text-zinc-950">{m.title}</h3>
+                  <p className="mt-2 text-sm text-zinc-600 leading-relaxed">
+                    {m.description}
+                  </p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
+          {/* Section B */}
+          <div className="mb-16">
+            <SectionHeader
+              kicker="Specialized Therapy"
+              title="Lymphatic Drainage"
+              subtitle="A gentle, targeted technique that supports circulation and relaxation. Pricing differs from standard massage."
+            />
+
+            <div className="relative rounded-2xl border border-zinc-950 bg-white p-6 sm:p-8">
+              <div className="absolute top-5 right-5">
+                <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-[11px] font-semibold text-zinc-950 uppercase tracking-[0.18em]">
+                  Signature
+                </span>
+              </div>
+
+              <div className="max-w-3xl">
+                <h3 className="text-2xl sm:text-3xl font-semibold text-zinc-950">
+                  Lymphatic Drainage Massage
+                </h3>
+                <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  Gentle massage to support natural detoxification and circulation.
+                </p>
+
+                <div className="mt-7 divide-y divide-zinc-200 rounded-xl border border-zinc-200">
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <div className="text-sm sm:text-base text-zinc-700">
+                      <span className="font-medium text-zinc-950">60 min</span>
+                    </div>
+                    <div className="text-base sm:text-lg font-semibold text-zinc-950">
+                      CA$130
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <div className="text-sm sm:text-base text-zinc-700">
+                      <span className="font-medium text-zinc-950">90 min</span>
+                    </div>
+                    <div className="text-base sm:text-lg font-semibold text-zinc-950">
+                      CA$160
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Page-level CTA (only here) */}
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
               href="/booking"
-              className="inline-flex items-center rounded-xl bg-black px-5 py-3 text-white hover:opacity-90"
+              className="inline-flex items-center rounded-2xl bg-black px-5 py-3 text-white hover:opacity-90"
             >
               Book a spa
             </Link>
             <Link
               href="/amenities"
-              className="inline-flex items-center rounded-xl border border-black px-5 py-3 hover:bg-black/5"
+              className="inline-flex items-center rounded-2xl border border-black px-5 py-3 hover:bg-black/5"
             >
               Sauna & Hot Tub
             </Link>
           </div>
 
           <p className="mt-6 text-xs text-zinc-500">
-            Services are relaxation-focused and non-diagnostic. Please inform us of sensitivities or
-            conditions prior to your session.
+            Services are relaxation-focused and non-diagnostic. Please inform us of
+            sensitivities or conditions prior to your session.
           </p>
         </div>
       </section>
