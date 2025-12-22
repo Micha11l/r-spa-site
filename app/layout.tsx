@@ -12,6 +12,10 @@ const ChristmasOfferFloating = dynamic(
   { ssr: false },
 );
 
+const OfferStatusBar = dynamic(() => import("@/components/OfferStatusBar"), {
+  ssr: false,
+});
+
 const SITE_NAME = "Rejuvenessence";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://rejuvenessence.org";
@@ -103,6 +107,7 @@ export default function RootLayout({
         <main>{children}</main>
         <Footer />
         <Toaster position="top-right" />
+        <OfferStatusBar />
         <ChristmasOfferFloating />
         <Script id="ld-localbusiness" type="application/ld+json">
           {JSON.stringify(ldJson)}
