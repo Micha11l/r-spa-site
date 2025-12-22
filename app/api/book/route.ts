@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendBookingEmails } from "@/lib/emails";
-import { SERVICES } from "@/lib/services";
+import { SERVICES } from "@/lib/services.catalog";
 import { createBooking } from "@/lib/bookings";
 
 export const runtime = "nodejs";

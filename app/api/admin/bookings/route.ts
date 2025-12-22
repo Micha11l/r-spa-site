@@ -7,7 +7,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createBooking } from "@/lib/bookings";
 import { sendBookingEmails } from "@/lib/emails";
-import { SERVICES } from "@/lib/services";
+import { SERVICES } from "@/lib/services.catalog";
 
 dayjs.extend(utc);
 dayjs.extend(tz);

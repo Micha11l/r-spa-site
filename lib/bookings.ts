@@ -4,7 +4,7 @@ import utc from "dayjs/plugin/utc";
 import tz from "dayjs/plugin/timezone";
 import customParse from "dayjs/plugin/customParseFormat";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { DURATIONS } from "@/lib/services";
+import { DURATIONS } from "@/lib/services.catalog";
 
 dayjs.extend(utc);
 dayjs.extend(tz);
