@@ -11,7 +11,17 @@ import {
   SERVICES_BY_CATEGORY,
   CATEGORY_LABELS,
   MASSAGE_CATEGORIES,
+  getServiceByName,
 } from "@/lib/services.catalog";
+
+// Massage type mapping for 2-stage selection
+const MASSAGE_TYPES = [
+  { key: "head", label: "Head Massage", category: "head" },
+  { key: "back-shoulders", label: "Back & Shoulders", category: "back-shoulders" },
+  { key: "foot", label: "Foot Massage", category: "foot" },
+  { key: "full-body", label: "Full Body Massage", category: "full-body" },
+  { key: "lymphatic", label: "Lymphatic Drainage", category: "lymphatic" },
+];
 
 type FormState = {
   service: string;
@@ -79,6 +89,13 @@ export default function BookingForm({
     null,
   );
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  // 2-stage massage selection
+  const [selectedMassageType, setSelectedMassageType] = useState<string | null>(null);
+  const [selectedMassageDuration, setSelectedMassageDuration] = useState<number | null>(null);
+
+  // Mobile tab selection
+  const [activeServiceTab, setActiveServiceTab] = useState<"massage" | "therapy">("massage");
 
   // Summary visibility for mobile
   const [showSummary, setShowSummary] = useState(false);
@@ -148,6 +165,29 @@ export default function BookingForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Helper: construct service name from massage type + duration
+  const constructMassageServiceName = (type: string, duration: number): string => {
+    const typeLabels: Record<string, string> = {
+      "head": "Head Massage",
+      "back-shoulders": "Back & Shoulders Massage",
+      "foot": "Foot Massage",
+      "full-body": "Full Body Massage",
+      "lymphatic": "Lymphatic Drainage Massage",
+    };
+    const label = typeLabels[type] || "Massage";
+    return `${label} (${duration}m)`;
+  };
+
+  // Effect: sync 2-stage selection when both type and duration are set
+  useEffect(() => {
+    if (selectedMassageType && selectedMassageDuration) {
+      const serviceName = constructMassageServiceName(selectedMassageType, selectedMassageDuration);
+      handleFieldChange("service", serviceName);
+      markTouched("service");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMassageType, selectedMassageDuration]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitAttempted(true);
@@ -190,6 +230,8 @@ export default function BookingForm({
       setSubmitAttempted(false);
       setSelectedOfferCode(null);
       setSelectedAddons([]);
+      setSelectedMassageType(null);
+      setSelectedMassageDuration(null);
       setCurrentStep(1);
     } catch (e: any) {
       setErr(e.message);
@@ -239,14 +281,33 @@ export default function BookingForm({
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Step Header */}
+      {/* Step Header - Desktop: Horizontal stepper with proper flex, Mobile: Progress bar */}
       <div className="mb-8">
-        <div className="flex items-center justify-between gap-2 overflow-x-auto">
+        {/* Mobile: Step indicator + progress bar */}
+        <div className="block md:hidden">
+          <div className="mb-3 text-center">
+            <div className="text-sm font-semibold text-zinc-900">
+              Step {currentStep} of {steps.length}
+            </div>
+            <div className="text-xs text-zinc-600 mt-1">
+              {steps[currentStep - 1].label}
+            </div>
+          </div>
+          <div className="w-full bg-zinc-200 rounded-full h-2">
+            <div
+              className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentStep / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Desktop: Horizontal stepper with proper flex layout */}
+        <div className="hidden md:flex items-center overflow-visible">
           {steps.map((step, index) => (
-            <div key={step.label} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
+            <div key={step.label} className="flex items-center" style={{ flex: index < steps.length - 1 ? 1 : '0 0 auto' }}>
+              <div className="flex flex-col items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                  className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold leading-none transition-colors ${
                     index + 1 === currentStep
                       ? "bg-blue-600 text-white ring-4 ring-blue-200"
                       : step.completed
@@ -268,7 +329,7 @@ export default function BookingForm({
               </div>
               {index < steps.length - 1 && (
                 <div
-                  className={`h-0.5 flex-1 mx-2 transition-colors ${
+                  className={`flex-1 h-px mx-4 transition-colors ${
                     step.completed ? "bg-emerald-600" : "bg-zinc-200"
                   }`}
                 />
@@ -309,28 +370,57 @@ export default function BookingForm({
                 Choose Your Service
               </h3>
 
-              {/* Massage Categories */}
-              {MASSAGE_CATEGORIES.map((category) => {
-                const services = SERVICES_BY_CATEGORY[category] || [];
-                if (services.length === 0) return null;
+              {/* Mobile: Tabs for Massage | Therapies */}
+              <div className="flex gap-2 border-b border-zinc-200 md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveServiceTab("massage")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    activeServiceTab === "massage"
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-zinc-600 hover:text-zinc-900"
+                  }`}
+                >
+                  Massage
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveServiceTab("therapy")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    activeServiceTab === "therapy"
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-zinc-600 hover:text-zinc-900"
+                  }`}
+                >
+                  Therapies
+                </button>
+              </div>
 
-                return (
-                  <div key={category} className="space-y-3">
-                    <h4 className="text-sm font-semibold text-zinc-700">
-                      {CATEGORY_LABELS[category]}
-                    </h4>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {services.map((service) => {
-                        const isSelected = form.service === service.name;
-                        const price = service.priceCents / 100;
+              {/* Massage Selection (2-stage) */}
+              {(activeServiceTab === "massage" || window.innerWidth >= 768) && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-zinc-700 md:block hidden">
+                    Massage Services
+                  </h4>
+
+                  {/* Stage A: Choose massage type */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-600 mb-2">
+                      1. Choose Massage Type
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {MASSAGE_TYPES.map((massageType) => {
+                        const isSelected = selectedMassageType === massageType.key;
+                        const services = SERVICES_BY_CATEGORY[massageType.category] || [];
+                        const desc = services[0]?.description || "";
 
                         return (
                           <button
-                            key={service.name}
+                            key={massageType.key}
                             type="button"
                             onClick={() => {
-                              handleFieldChange("service", service.name);
-                              markTouched("service");
+                              setSelectedMassageType(massageType.key);
+                              setSelectedMassageDuration(null); // Reset duration when type changes
                             }}
                             className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                               isSelected
@@ -346,16 +436,11 @@ export default function BookingForm({
                               </div>
                             )}
                             <div className="pr-8">
-                              <div className="font-semibold text-base text-zinc-900 mb-1">
-                                {service.minutes} min
+                              <div className="font-semibold text-sm text-zinc-900 mb-1">
+                                {massageType.label}
                               </div>
-                              <div className="text-lg font-bold text-emerald-600">
-                                CA${price}
-                              </div>
-                              {service.description && (
-                                <p className="text-xs text-zinc-500 mt-2">
-                                  {service.description}
-                                </p>
+                              {desc && (
+                                <p className="text-xs text-zinc-500">{desc}</p>
                               )}
                             </div>
                           </button>
@@ -363,11 +448,59 @@ export default function BookingForm({
                       })}
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Stage B: Choose duration (only show if type is selected) */}
+                  {selectedMassageType && (
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-600 mb-2">
+                        2. Choose Duration
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {(() => {
+                          const isLymphatic = selectedMassageType === "lymphatic";
+                          const durations = isLymphatic ? [60, 90] : [45, 60, 90];
+                          const getPriceForDuration = (mins: number) => {
+                            if (isLymphatic) {
+                              return mins === 60 ? 130 : 160;
+                            }
+                            return mins === 45 ? 75 : mins === 60 ? 100 : 150;
+                          };
+
+                          return durations.map((mins) => {
+                            const isSelected = selectedMassageDuration === mins;
+                            const price = getPriceForDuration(mins);
+
+                            return (
+                              <button
+                                key={mins}
+                                type="button"
+                                onClick={() => setSelectedMassageDuration(mins)}
+                                className={`flex-1 min-w-[120px] rounded-xl border-2 p-4 transition-all ${
+                                  isSelected
+                                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                                    : "border-zinc-200 bg-white hover:border-emerald-300"
+                                }`}
+                              >
+                                <div className="text-center">
+                                  <div className="font-semibold text-base text-zinc-900">
+                                    {mins} min
+                                  </div>
+                                  <div className="text-lg font-bold text-emerald-600 mt-1">
+                                    CA${price}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Therapy Services */}
-              {SERVICES_BY_CATEGORY.therapy && (
+              {(activeServiceTab === "therapy" || window.innerWidth >= 768) && SERVICES_BY_CATEGORY.therapy && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-zinc-700">
                     {CATEGORY_LABELS.therapy}
@@ -384,6 +517,9 @@ export default function BookingForm({
                           onClick={() => {
                             handleFieldChange("service", service.name);
                             markTouched("service");
+                            // Reset massage selection state when therapy is selected
+                            setSelectedMassageType(null);
+                            setSelectedMassageDuration(null);
                           }}
                           className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                             isSelected
@@ -435,6 +571,8 @@ export default function BookingForm({
                           onClick={() => {
                             handleFieldChange("service", service.name);
                             markTouched("service");
+                            setSelectedMassageType(null);
+                            setSelectedMassageDuration(null);
                           }}
                           className={`relative text-left rounded-xl border-2 p-4 transition-all ${
                             isSelected
