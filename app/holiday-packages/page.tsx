@@ -24,9 +24,8 @@ const PACKAGES: Package[] = [
     name: "Winter Glow",
     tagline: "Complete relaxation experience",
     includes: [
-      "60-minute Full Body Massage",
-      "30-minute Private Sauna Session",
-      "30-minute Hot Tub Relaxation",
+      "Any 60- or 90-minute massage",
+      "FREE 30 min Hot Tub OR Sauna (CA$45 value included)",
     ],
     highlights: "Perfect for deep relaxation and rejuvenation",
     gradient: "from-blue-600 to-purple-600",
