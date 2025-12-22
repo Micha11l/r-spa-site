@@ -1,6 +1,6 @@
 // components/BookingForm.tsx
 "use client";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -111,6 +111,7 @@ export default function BookingForm({
   // Refs for scrolling to sections
   const massageSectionRef = useRef<HTMLDivElement>(null);
   const therapySectionRef = useRef<HTMLDivElement>(null);
+  const topAnchorRef = useRef<HTMLDivElement>(null);
 
   // Switch functions for service type
   const switchToMassage = () => {
@@ -356,22 +357,67 @@ export default function BookingForm({
     return false;
   };
 
+  // Robust scroll to top function (works on iOS Safari and all browsers)
+  const scrollToTop = useCallback(() => {
+    // Primary method: scroll to anchor element
+    if (topAnchorRef.current) {
+      topAnchorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // Fallback methods for mobile quirks (iOS Safari, etc.)
+    if (typeof window !== "undefined") {
+      // Try window.scrollTo
+      try {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch (e) {
+        window.scrollTo(0, 0);
+      }
+
+      // Try document.documentElement.scrollTo
+      if (document.documentElement) {
+        try {
+          document.documentElement.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) {
+          document.documentElement.scrollTop = 0;
+        }
+      }
+
+      // Try document.body.scrollTo
+      if (document.body) {
+        try {
+          document.body.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) {
+          document.body.scrollTop = 0;
+        }
+      }
+    }
+  }, []);
+
   const handleNext = () => {
     if (currentStep < 4 && canProceedFromStep(currentStep)) {
       setCurrentStep(currentStep + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Double RAF to ensure DOM/layout updated before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToTop());
+      });
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Double RAF to ensure DOM/layout updated before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToTop());
+      });
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Scroll anchor for mobile navigation */}
+      <div ref={topAnchorRef} className="absolute" aria-hidden="true" />
+
       {/* Step Header - Desktop: Horizontal stepper with proper flex, Mobile: Progress bar */}
       <div className="mb-8">
         {/* Mobile: Step indicator + progress bar */}
