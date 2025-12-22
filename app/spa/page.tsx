@@ -151,36 +151,37 @@ export default function SpaPage() {
               subtitle="A gentle, targeted technique that supports circulation and relaxation. Pricing differs from standard massage."
             />
 
-            <div className="relative rounded-2xl border border-zinc-950 bg-white p-6 sm:p-8">
-              <div className="absolute top-5 right-5">
-                <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-[11px] font-semibold text-zinc-950 uppercase tracking-[0.18em]">
+            <div className="rounded-2xl border border-zinc-950 bg-white p-4 sm:p-6 md:p-8">
+              {/* Signature badge - responsive positioning */}
+              <div className="mb-4 sm:mb-0 sm:float-right sm:ml-4">
+                <span className="inline-flex items-center rounded-full border border-zinc-950 px-3 py-1 text-[11px] font-semibold text-zinc-950 uppercase tracking-[0.18em] whitespace-nowrap">
                   Signature
                 </span>
               </div>
 
-              <div className="max-w-3xl">
-                <h3 className="text-2xl sm:text-3xl font-semibold text-zinc-950">
+              <div className="min-w-0">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold text-zinc-950 break-words leading-snug pr-0 sm:pr-4">
                   Lymphatic Drainage Massage
                 </h3>
-                <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed">
+                <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed break-words whitespace-normal">
                   Gentle massage to support natural detoxification and circulation.
                 </p>
 
-                <div className="mt-7 divide-y divide-zinc-200 rounded-xl border border-zinc-200">
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <div className="text-sm sm:text-base text-zinc-700">
-                      <span className="font-medium text-zinc-950">60 min</span>
+                <div className="mt-6 sm:mt-7 divide-y divide-zinc-200 rounded-xl border border-zinc-200 clear-both">
+                  <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-4 px-4 sm:px-5 py-3 sm:py-4 min-w-0">
+                    <div className="text-sm sm:text-base text-zinc-700 min-w-0">
+                      <span className="font-medium text-zinc-950 whitespace-nowrap">60 min</span>
                     </div>
-                    <div className="text-base sm:text-lg font-semibold text-zinc-950">
+                    <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
                       CA$130
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <div className="text-sm sm:text-base text-zinc-700">
-                      <span className="font-medium text-zinc-950">90 min</span>
+                  <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-4 px-4 sm:px-5 py-3 sm:py-4 min-w-0">
+                    <div className="text-sm sm:text-base text-zinc-700 min-w-0">
+                      <span className="font-medium text-zinc-950 whitespace-nowrap">90 min</span>
                     </div>
-                    <div className="text-base sm:text-lg font-semibold text-zinc-950">
+                    <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
                       CA$160
                     </div>
                   </div>
