@@ -205,6 +205,19 @@ export default function PurchaseGiftCardPage() {
           </p>
         </div>
 
+        {/* Holiday Gift Card Bonus Banner */}
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-2xl shadow-lg p-6 mb-8 border-2 border-purple-300">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-2">🎄 Holiday Gift Card Bonus</h2>
+            <p className="text-lg mb-1">
+              Buy a CA$200 gift card, get a CA$20 bonus.
+            </p>
+            <p className="text-xs text-white/80 mt-3">
+              Limited time. Bonus details shown at checkout or honored by staff.
+            </p>
+          </div>
+        </div>
+
         {/* Your Information */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8 border-2 border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
