@@ -1100,26 +1100,28 @@ export default function BookingForm({
           {/* Step 2: Date & Time Selection */}
           {currentStep === 2 && (
             <div className="grid sm:grid-cols-2 gap-4 min-w-0 w-full overflow-hidden">
-            <div className="min-w-0 overflow-hidden">
+            <div className="min-w-0 w-full overflow-hidden">
               <label className="block text-sm mb-1" htmlFor="booking-date">
                 Date
               </label>
-              <input
-                id="booking-date"
-                type="date"
-                value={form.date}
-                min={todayDate}
-                lang="en-CA"
-                placeholder="YYYY-MM-DD"
-                onChange={(e) => handleFieldChange("date", e.target.value)}
-                onBlur={() => markTouched("date")}
-                required
-                className="w-full max-w-full box-border rounded-md border px-3 py-2"
-                aria-invalid={Boolean(showFieldError("date"))}
-                aria-describedby={
-                  showFieldError("date") ? "booking-date-error" : undefined
-                }
-              />
+              <div className="w-full min-w-0 box-border rounded-md border border-zinc-200 bg-white px-3 py-2 overflow-hidden">
+                <input
+                  id="booking-date"
+                  type="date"
+                  value={form.date}
+                  min={todayDate}
+                  lang="en-CA"
+                  placeholder="YYYY-MM-DD"
+                  onChange={(e) => handleFieldChange("date", e.target.value)}
+                  onBlur={() => markTouched("date")}
+                  required
+                  className="w-full min-w-0 bg-transparent border-0 p-0 focus:outline-none focus:ring-0 text-zinc-900 appearance-none"
+                  aria-invalid={Boolean(showFieldError("date"))}
+                  aria-describedby={
+                    showFieldError("date") ? "booking-date-error" : undefined
+                  }
+                />
+              </div>
               {showFieldError("date") && (
                 <p
                   id="booking-date-error"
@@ -1129,7 +1131,7 @@ export default function BookingForm({
                 </p>
               )}
             </div>
-            <div className="min-w-0 overflow-hidden">
+            <div className="min-w-0 w-full overflow-hidden">
               <label className="block text-sm mb-1" htmlFor="booking-time">
                 Time
               </label>
