@@ -6,7 +6,7 @@ import BookingForm from "@/components/BookingForm";
 
 export default function BookingClient() {
   return (
-    <section className="section">
+    <section className="section overflow-x-hidden">
       <Container>
         <SectionTitle
           title="Book an Appointment"

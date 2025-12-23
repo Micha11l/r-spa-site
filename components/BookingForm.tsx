@@ -1,7 +1,7 @@
 // components/BookingForm.tsx
 "use client";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Check } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   SERVICES_BY_CATEGORY,
   CATEGORY_LABELS,
   MASSAGE_CATEGORIES,
+  SERVICE_CATALOG,
   getServiceByName,
 } from "@/lib/services.catalog";
 
@@ -23,6 +24,37 @@ const MASSAGE_TYPES = [
   { key: "full-body", label: "Full Body Massage", category: "full-body" },
   { key: "lymphatic", label: "Lymphatic Drainage", category: "lymphatic" },
 ];
+
+// Time step for mobile select dropdown (15 minutes)
+const TIME_STEP_MIN = 15;
+
+// Helper: Build time options for select dropdown
+const buildTimeOptions = (start: string, end: string, stepMin: number): string[] => {
+  const options: string[] = [];
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  for (let mins = startMinutes; mins <= endMinutes; mins += stepMin) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    options.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+  }
+
+  return options;
+};
+
+// Helper: Round up time to next step interval
+const roundUpToStep = (time: string, stepMin: number): string => {
+  const [h, m] = time.split(":").map(Number);
+  const totalMinutes = h * 60 + m;
+  const roundedMinutes = Math.ceil(totalMinutes / stepMin) * stepMin;
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+};
 
 type FormState = {
   service: string;
@@ -75,6 +107,7 @@ export default function BookingForm({
   compact = false,
 }: BookingFormProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -121,6 +154,57 @@ export default function BookingForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.date, form.time]);
+
+  // Deep-link preselect: compute params from URL (updates on navigation)
+  const serviceParam = searchParams.get("service");
+  const minutesParam = searchParams.get("minutes");
+
+  // Deep-link preselect: handle ?service=<code>&minutes=<duration>
+  useEffect(() => {
+    if (!serviceParam) return;
+
+    // Check if it's a massage type (head, back-shoulders, foot, full-body, lymphatic)
+    const massageType = MASSAGE_TYPES.find((mt) => mt.key === serviceParam);
+    if (massageType) {
+      // It's a massage service - clear therapy selection
+      setSelectedTherapyService(null);
+      setSelectedMassageType(serviceParam);
+      setActiveServiceTab("massage");
+
+      if (minutesParam) {
+        const minutes = parseInt(minutesParam, 10);
+        if (!isNaN(minutes)) {
+          setSelectedMassageMinutes(minutes);
+        } else {
+          setSelectedMassageMinutes(null);
+        }
+      } else {
+        setSelectedMassageMinutes(null);
+      }
+
+      // Scroll to massage section after a small delay
+      setTimeout(() => {
+        massageSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } else {
+      // Check if it's a therapy service (full service name)
+      const therapyService = SERVICE_CATALOG.find(
+        (s) => s.category === "therapy" && s.name === serviceParam
+      );
+      if (therapyService) {
+        // It's a therapy service - clear massage selection
+        setSelectedMassageType(null);
+        setSelectedMassageMinutes(null);
+        setSelectedTherapyService(therapyService.name);
+        setActiveServiceTab("therapy");
+
+        // Scroll to therapy section after a small delay
+        setTimeout(() => {
+          therapySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }
+    }
+  }, [serviceParam, minutesParam]);
 
   // Refs for scrolling to sections
   const massageSectionRef = useRef<HTMLDivElement>(null);
@@ -294,30 +378,27 @@ export default function BookingForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        // Map error codes to user-friendly messages
-        const errorCode = data.error || "Failed";
-        throw new Error(errorCode);
+        // Get error code from response
+        const errorCode = data.error || "generic";
+        // Navigate to failure page with error code
+        router.push(`/booking/failure?code=${encodeURIComponent(errorCode)}`);
+        return;
       }
 
       if (onSuccess) {
+        // If custom success handler provided, use it
         onSuccess(data);
       } else {
-        setOk(
-          "Thank you! Your request has been received. We'll confirm by email shortly.",
-        );
+        // Navigate to success page (optionally with booking ID)
+        const bookingId = data.data?.id || data.id;
+        const successUrl = bookingId
+          ? `/booking/success?ref=${bookingId}`
+          : "/booking/success";
+        router.push(successUrl);
       }
-
-      setForm(createInitialFormState());
-      setTouched(createTouchedState());
-      setSubmitAttempted(false);
-      setSelectedOfferCode(null);
-      setSelectedAddons([]);
-      setSelectedMassageType(null);
-      setSelectedMassageMinutes(null);
-      setSelectedTherapyService(null);
-      setCurrentStep(1);
     } catch (e: any) {
-      setErr(e.message);
+      // Navigate to failure page with generic error
+      router.push(`/booking/failure?code=generic`);
     } finally {
       setLoading(false);
     }
@@ -348,12 +429,40 @@ export default function BookingForm({
     return selectedDatetime < now;
   };
 
-  // Get minimum time for today (current time + 1 hour buffer)
+  // Get minimum time for today (current time + 1 hour buffer, rounded to next 5 minutes)
   const getMinTimeForToday = (): string => {
     const now = new Date();
     now.setHours(now.getHours() + 1); // Add 1 hour buffer
+
+    // Round up to next 5-minute mark
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 5) * 5;
+
+    if (roundedMinutes >= 60) {
+      now.setHours(now.getHours() + 1);
+      now.setMinutes(0);
+    } else {
+      now.setMinutes(roundedMinutes);
+    }
+
     return now.toTimeString().slice(0, 5); // HH:MM format
   };
+
+  // Compute time options for mobile select based on selected date
+  const mobileTimeOptions = useMemo(() => {
+    if (form.date === todayDate) {
+      const minTime = roundUpToStep(getMinTimeForToday(), TIME_STEP_MIN);
+      return buildTimeOptions(minTime, "21:00", TIME_STEP_MIN);
+    }
+    return buildTimeOptions("09:00", "21:00", TIME_STEP_MIN);
+  }, [form.date, todayDate]);
+
+  // Reset form.time if it becomes invalid when date changes
+  useEffect(() => {
+    if (form.time && !mobileTimeOptions.includes(form.time)) {
+      setForm((prev) => ({ ...prev, time: "" }));
+    }
+  }, [form.date, form.time, mobileTimeOptions]);
 
   // Step indicators
   const steps = [
@@ -417,13 +526,49 @@ export default function BookingForm({
 
     try {
       // Fetch busy times for the selected date
-      const res = await fetch(`/api/availability?date=${form.date}`);
+      const res = await fetch(`/api/availability?date=${encodeURIComponent(form.date)}`, {
+        cache: 'no-store',
+      });
+
       if (!res.ok) {
-        setTimeError("Unable to check availability. Please try again.");
+        // Log detailed error for debugging (dev only)
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`Availability check failed: ${res.status} ${res.statusText}`);
+        }
+
+        // Only show "Unable to check" if request actually failed (not a 200 with no data)
+        if (res.status >= 500) {
+          setTimeError("Couldn't check availability. Please try again.");
+        } else if (res.status === 400) {
+          setTimeError("Invalid date. Please select a valid date.");
+        } else {
+          setTimeError("Couldn't check availability. Please try again.");
+        }
         return false;
       }
 
-      const { busy } = await res.json();
+      // Parse JSON safely
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch (jsonError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Failed to parse availability response:", jsonError);
+        }
+        setTimeError("Couldn't check availability. Please try again.");
+        return false;
+      }
+
+      const { busyIntervals } = responseData;
+
+      // Ensure busyIntervals is an array
+      if (!Array.isArray(busyIntervals)) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Invalid busy slots format:", busyIntervals);
+        }
+        setTimeError("Couldn't check availability. Please try again.");
+        return false;
+      }
 
       // Get service duration
       const selectedService = getServiceByName(form.service);
@@ -434,27 +579,34 @@ export default function BookingForm({
       const selectedEnd = new Date(selectedStart.getTime() + durationMinutes * 60000);
 
       // Check if selected time conflicts with any busy slot
-      const hasConflict = busy.some((slot: { start: string; end: string }) => {
-        const busyStart = new Date(slot.start);
-        const busyEnd = new Date(slot.end);
+      const hasConflict = busyIntervals.some((slot: { start_at: string; end_at: string }) => {
+        const busyStart = new Date(slot.start_at);
+        const busyEnd = new Date(slot.end_at);
         // Conflict if: selectedStart < busyEnd AND selectedEnd > busyStart
         return selectedStart < busyEnd && selectedEnd > busyStart;
       });
 
       if (hasConflict) {
+        // Convert busyIntervals to legacy format for findNearestAvailableTimes
+        const busySlots = busyIntervals.map((slot: { start_at: string; end_at: string }) => ({
+          start: slot.start_at,
+          end: slot.end_at,
+        }));
+
         // Find suggested times (nearest 3 available times on same date)
         const suggestions = findNearestAvailableTimes(
           form.date,
           form.time,
-          busy,
+          busySlots,
           durationMinutes,
+          TIME_STEP_MIN,
         );
 
         if (suggestions.length > 0) {
-          setTimeError("This time is no longer available. Please choose another time.");
+          setTimeError("Time not available.");
           setSuggestedTimes(suggestions);
         } else {
-          setTimeError("This time is no longer available. Try a different date.");
+          setTimeError("Time not available.");
           setSuggestedTimes([]);
         }
 
@@ -464,8 +616,11 @@ export default function BookingForm({
       // Time is available
       return true;
     } catch (error) {
-      console.error("Error validating time:", error);
-      setTimeError("Unable to check availability. Please try again.");
+      // Network error or other unexpected error
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error validating time:", error);
+      }
+      setTimeError("Couldn't check availability");
       return false;
     } finally {
       setCheckingTime(false);
@@ -478,15 +633,15 @@ export default function BookingForm({
     selectedTime: string,
     busySlots: { start: string; end: string }[],
     durationMinutes: number,
+    stepMin: number = TIME_STEP_MIN,
   ): string[] => {
     const suggestions: { time: string; diff: number }[] = [];
     const selectedMinutes = timeToMinutes(selectedTime);
 
-    // Check times in 30-minute intervals, up to ±4 hours from selected time
+    // Check times in stepMin intervals, up to ±4 hours from selected time
     const checkRange = 4 * 60; // 4 hours in minutes
-    const interval = 30; // 30-minute intervals
 
-    for (let offset = interval; offset <= checkRange; offset += interval) {
+    for (let offset = stepMin; offset <= checkRange; offset += stepMin) {
       // Check both before and after selected time
       const timesToCheck = [
         selectedMinutes + offset,
@@ -944,8 +1099,8 @@ export default function BookingForm({
 
           {/* Step 2: Date & Time Selection */}
           {currentStep === 2 && (
-            <div className="grid sm:grid-cols-2 gap-4">
-            <div>
+            <div className="grid sm:grid-cols-2 gap-4 min-w-0 w-full overflow-hidden">
+            <div className="min-w-0 overflow-hidden">
               <label className="block text-sm mb-1" htmlFor="booking-date">
                 Date
               </label>
@@ -959,7 +1114,7 @@ export default function BookingForm({
                 onChange={(e) => handleFieldChange("date", e.target.value)}
                 onBlur={() => markTouched("date")}
                 required
-                className="w-full rounded-md border px-3 py-2"
+                className="w-full max-w-full box-border rounded-md border px-3 py-2"
                 aria-invalid={Boolean(showFieldError("date"))}
                 aria-describedby={
                   showFieldError("date") ? "booking-date-error" : undefined
@@ -974,24 +1129,46 @@ export default function BookingForm({
                 </p>
               )}
             </div>
-            <div>
+            <div className="min-w-0 overflow-hidden">
               <label className="block text-sm mb-1" htmlFor="booking-time">
                 Time
               </label>
-              <input
-                id="booking-time"
-                type="time"
-                value={form.time}
-                min={form.date === todayDate ? getMinTimeForToday() : undefined}
-                onChange={(e) => handleFieldChange("time", e.target.value)}
-                onBlur={() => markTouched("time")}
-                required
-                className="w-full rounded-md border px-3 py-2"
-                aria-invalid={Boolean(showFieldError("time"))}
-                aria-describedby={
-                  showFieldError("time") ? "booking-time-error" : undefined
-                }
-              />
+              {isDesktop ? (
+                <input
+                  id="booking-time"
+                  type="time"
+                  value={form.time}
+                  min={form.date === todayDate ? getMinTimeForToday() : undefined}
+                  onChange={(e) => handleFieldChange("time", e.target.value)}
+                  onBlur={() => markTouched("time")}
+                  required
+                  className="w-full max-w-full box-border rounded-md border px-3 py-2"
+                  aria-invalid={Boolean(showFieldError("time"))}
+                  aria-describedby={
+                    showFieldError("time") ? "booking-time-error" : undefined
+                  }
+                />
+              ) : (
+                <select
+                  id="booking-time"
+                  value={form.time}
+                  onChange={(e) => handleFieldChange("time", e.target.value)}
+                  onBlur={() => markTouched("time")}
+                  required
+                  className="w-full max-w-full box-border rounded-md border px-3 py-2"
+                  aria-invalid={Boolean(showFieldError("time"))}
+                  aria-describedby={
+                    showFieldError("time") ? "booking-time-error" : undefined
+                  }
+                >
+                  <option value="">Select time</option>
+                  {mobileTimeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              )}
               {showFieldError("time") && (
                 <p
                   id="booking-time-error"
@@ -1009,13 +1186,13 @@ export default function BookingForm({
 
             {/* Time availability error and suggestions */}
             {timeError && (
-              <div className="sm:col-span-2 mt-2">
-                <div className="border border-zinc-900 bg-white rounded-lg p-4">
-                  <p className="text-sm text-zinc-900 mb-3">{timeError}</p>
+              <div className="sm:col-span-2 mt-2 min-w-0">
+                <div className="bg-white border border-zinc-200 rounded-xl p-4">
+                  <p className="text-sm font-medium text-zinc-900 mb-2">{timeError}</p>
 
                   {suggestedTimes.length > 0 && (
                     <div>
-                      <p className="text-xs text-zinc-600 mb-2">
+                      <p className="text-sm text-zinc-600 mb-3">
                         Try these nearby times:
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -1028,7 +1205,7 @@ export default function BookingForm({
                               setTimeError(null);
                               setSuggestedTimes([]);
                             }}
-                            className="px-3 py-1.5 text-sm border border-zinc-900 text-zinc-900 rounded hover:bg-zinc-100 transition-colors"
+                            className="border border-zinc-200 rounded-full px-3 py-1 text-sm hover:bg-zinc-50 transition-colors"
                           >
                             {time}
                           </button>
