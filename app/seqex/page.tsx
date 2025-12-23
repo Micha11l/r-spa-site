@@ -126,7 +126,7 @@ export default function SeqexPage() {
 
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
-              href="/booking"
+              href="/booking?service=Seqex Session (27m)"
               className="inline-flex items-center rounded-xl bg-black px-5 py-3 text-white hover:opacity-90"
             >
               Book a session
