@@ -172,8 +172,16 @@ export default function SpaPage() {
                     <div className="text-sm sm:text-base text-zinc-700 min-w-0">
                       <span className="font-medium text-zinc-950 whitespace-nowrap">60 min</span>
                     </div>
-                    <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
-                      CA$130
+                    <div className="flex items-center gap-3">
+                      <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
+                        CA$130
+                      </div>
+                      <Link
+                        href="/booking?service=lymphatic&minutes=60"
+                        className="text-xs sm:text-sm font-medium text-zinc-900 hover:underline whitespace-nowrap"
+                      >
+                        Book now →
+                      </Link>
                     </div>
                   </div>
 
@@ -181,8 +189,16 @@ export default function SpaPage() {
                     <div className="text-sm sm:text-base text-zinc-700 min-w-0">
                       <span className="font-medium text-zinc-950 whitespace-nowrap">90 min</span>
                     </div>
-                    <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
-                      CA$160
+                    <div className="flex items-center gap-3">
+                      <div className="text-base sm:text-lg font-semibold text-zinc-950 whitespace-nowrap">
+                        CA$160
+                      </div>
+                      <Link
+                        href="/booking?service=lymphatic&minutes=90"
+                        className="text-xs sm:text-sm font-medium text-zinc-900 hover:underline whitespace-nowrap"
+                      >
+                        Book now →
+                      </Link>
                     </div>
                   </div>
                 </div>
