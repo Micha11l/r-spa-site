@@ -108,6 +108,20 @@ export default function BookingForm({
   // Step navigation
   const [currentStep, setCurrentStep] = useState(1);
 
+  // Time availability validation
+  const [checkingTime, setCheckingTime] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  const [suggestedTimes, setSuggestedTimes] = useState<string[]>([]);
+
+  // Clear time error when date or time changes
+  useEffect(() => {
+    if (timeError) {
+      setTimeError(null);
+      setSuggestedTimes([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.date, form.time]);
+
   // Refs for scrolling to sections
   const massageSectionRef = useRef<HTMLDivElement>(null);
   const therapySectionRef = useRef<HTMLDivElement>(null);
@@ -393,8 +407,150 @@ export default function BookingForm({
     }
   }, []);
 
-  const handleNext = () => {
+  // Validate selected time availability
+  const validateSelectedTime = async (): Promise<boolean> => {
+    if (!form.date || !form.time) return false;
+
+    setCheckingTime(true);
+    setTimeError(null);
+    setSuggestedTimes([]);
+
+    try {
+      // Fetch busy times for the selected date
+      const res = await fetch(`/api/availability?date=${form.date}`);
+      if (!res.ok) {
+        setTimeError("Unable to check availability. Please try again.");
+        return false;
+      }
+
+      const { busy } = await res.json();
+
+      // Get service duration
+      const selectedService = getServiceByName(form.service);
+      const durationMinutes = selectedService?.minutes || 60;
+
+      // Parse selected time to get start and end timestamps
+      const selectedStart = new Date(`${form.date}T${form.time}`);
+      const selectedEnd = new Date(selectedStart.getTime() + durationMinutes * 60000);
+
+      // Check if selected time conflicts with any busy slot
+      const hasConflict = busy.some((slot: { start: string; end: string }) => {
+        const busyStart = new Date(slot.start);
+        const busyEnd = new Date(slot.end);
+        // Conflict if: selectedStart < busyEnd AND selectedEnd > busyStart
+        return selectedStart < busyEnd && selectedEnd > busyStart;
+      });
+
+      if (hasConflict) {
+        // Find suggested times (nearest 3 available times on same date)
+        const suggestions = findNearestAvailableTimes(
+          form.date,
+          form.time,
+          busy,
+          durationMinutes,
+        );
+
+        if (suggestions.length > 0) {
+          setTimeError("This time is no longer available. Please choose another time.");
+          setSuggestedTimes(suggestions);
+        } else {
+          setTimeError("This time is no longer available. Try a different date.");
+          setSuggestedTimes([]);
+        }
+
+        return false;
+      }
+
+      // Time is available
+      return true;
+    } catch (error) {
+      console.error("Error validating time:", error);
+      setTimeError("Unable to check availability. Please try again.");
+      return false;
+    } finally {
+      setCheckingTime(false);
+    }
+  };
+
+  // Find nearest available times (up to 3 suggestions)
+  const findNearestAvailableTimes = (
+    date: string,
+    selectedTime: string,
+    busySlots: { start: string; end: string }[],
+    durationMinutes: number,
+  ): string[] => {
+    const suggestions: { time: string; diff: number }[] = [];
+    const selectedMinutes = timeToMinutes(selectedTime);
+
+    // Check times in 30-minute intervals, up to ±4 hours from selected time
+    const checkRange = 4 * 60; // 4 hours in minutes
+    const interval = 30; // 30-minute intervals
+
+    for (let offset = interval; offset <= checkRange; offset += interval) {
+      // Check both before and after selected time
+      const timesToCheck = [
+        selectedMinutes + offset,
+        selectedMinutes - offset,
+      ].filter(m => m >= 0 && m < 24 * 60); // Keep within 00:00-23:59
+
+      for (const mins of timesToCheck) {
+        const timeStr = minutesToTime(mins);
+        const testStart = new Date(`${date}T${timeStr}`);
+        const testEnd = new Date(testStart.getTime() + durationMinutes * 60000);
+
+        // Check if this time conflicts with any busy slot
+        const conflicts = busySlots.some((slot: { start: string; end: string }) => {
+          const busyStart = new Date(slot.start);
+          const busyEnd = new Date(slot.end);
+          return testStart < busyEnd && testEnd > busyStart;
+        });
+
+        if (!conflicts) {
+          suggestions.push({
+            time: timeStr,
+            diff: Math.abs(offset),
+          });
+
+          // Stop if we have 3 suggestions
+          if (suggestions.length >= 3) {
+            break;
+          }
+        }
+      }
+
+      if (suggestions.length >= 3) break;
+    }
+
+    // Sort by time difference and return time strings
+    return suggestions
+      .sort((a, b) => a.diff - b.diff)
+      .slice(0, 3)
+      .map(s => s.time);
+  };
+
+  // Helper: Convert HH:MM to minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Helper: Convert minutes to HH:MM
+  const minutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  };
+
+  const handleNext = async () => {
     if (currentStep < 4 && canProceedFromStep(currentStep)) {
+      // Special handling for Step 2: validate time availability
+      if (currentStep === 2) {
+        const isAvailable = await validateSelectedTime();
+        if (!isAvailable) {
+          return; // Don't proceed if time is not available
+        }
+      }
+
       setCurrentStep(currentStep + 1);
       // Double RAF to ensure DOM/layout updated before scrolling
       requestAnimationFrame(() => {
@@ -850,6 +1006,48 @@ export default function BookingForm({
                 </p>
               )}
             </div>
+
+            {/* Time availability error and suggestions */}
+            {timeError && (
+              <div className="sm:col-span-2 mt-2">
+                <div className="border border-zinc-900 bg-white rounded-lg p-4">
+                  <p className="text-sm text-zinc-900 mb-3">{timeError}</p>
+
+                  {suggestedTimes.length > 0 && (
+                    <div>
+                      <p className="text-xs text-zinc-600 mb-2">
+                        Try these nearby times:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestedTimes.map((time) => (
+                          <button
+                            key={time}
+                            type="button"
+                            onClick={() => {
+                              handleFieldChange("time", time);
+                              setTimeError(null);
+                              setSuggestedTimes([]);
+                            }}
+                            className="px-3 py-1.5 text-sm border border-zinc-900 text-zinc-900 rounded hover:bg-zinc-100 transition-colors"
+                          >
+                            {time}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Real-time availability notice */}
+            {!timeError && hasDateTime && (
+              <div className="sm:col-span-2 mt-2">
+                <p className="text-xs text-zinc-600 italic">
+                  Availability updates in real time. If a slot is taken, please pick another time.
+                </p>
+              </div>
+            )}
             </div>
           )}
 
@@ -1188,10 +1386,10 @@ export default function BookingForm({
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={!canProceedFromStep(currentStep)}
+                disabled={!canProceedFromStep(currentStep) || (currentStep === 2 && checkingTime)}
                 className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
               >
-                Next
+                {currentStep === 2 && checkingTime ? "Checking availability…" : "Next"}
               </button>
             </div>
           )}
