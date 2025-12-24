@@ -1,7 +1,7 @@
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { stripe, getStripeWebhookSecret } from "@/lib/stripe";
+import { getStripeClient, getStripeWebhookSecret } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendPaymentSuccessEmail, sendGiftCardEmail, sendGiftCardPurchaseConfirmation, sendPackagePurchaseBuyerEmail, sendPackageGiftRecipientEmail } from "@/lib/emails";
 import {
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
   const rawBody = await req.text();
 
   try {
+    const stripe = getStripeClient();
     event = stripe.webhooks.constructEvent(
       rawBody,
       sig,

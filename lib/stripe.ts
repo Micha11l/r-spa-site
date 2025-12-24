@@ -45,7 +45,14 @@ function getWebhookSecretForMode(mode: StripeMode) {
 }
 
 export const stripeMode = resolveMode();
-export const stripe = new Stripe(getSecretKey(stripeMode));
+let stripeClient: Stripe | null = null;
+
+export function getStripeClient() {
+  if (!stripeClient) {
+    stripeClient = new Stripe(getSecretKey(stripeMode));
+  }
+  return stripeClient;
+}
 
 export function getStripeWebhookSecret() {
   return getWebhookSecretForMode(stripeMode);
