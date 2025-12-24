@@ -1,9 +1,9 @@
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { stripe } from "@/lib/stripe";
+import { stripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { sendPaymentSuccessEmail, sendGiftCardEmail, sendGiftCardPurchaseConfirmation } from "@/lib/emails";
+import { sendPaymentSuccessEmail, sendGiftCardEmail, sendGiftCardPurchaseConfirmation, sendPackagePurchaseBuyerEmail, sendPackageGiftRecipientEmail } from "@/lib/emails";
 import {
   generateGiftCardCode,
   generateRedeemToken,
@@ -12,6 +12,7 @@ import {
   parseGiftCardMetadata,
   dollarsToCents,
 } from "@/lib/gift-card-utils";
+import { getPackageByCode } from "@/lib/packages.catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(
       rawBody,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      getStripeWebhookSecret()
     );
   } catch (err: any) {
     console.error("[stripe webhook] signature error:", err.message);
@@ -49,6 +50,11 @@ export async function POST(req: Request) {
       // Check if this is a gift card purchase
       if (metadata?.type === "gift_card") {
         return await handleGiftCardPurchase(session);
+      }
+
+      // Check if this is a package purchase
+      if (metadata?.type === "package") {
+        return await handlePackagePurchase(session);
       }
 
       // Otherwise, handle booking payment (existing logic)
@@ -285,6 +291,149 @@ async function handleBookingPayment(session: any) {
     } catch (mailErr: any) {
       console.error("[email] Failed to send payment confirmation:", mailErr);
     }
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+// =====================================================
+// Package Purchase Handler
+// =====================================================
+
+async function handlePackagePurchase(session: any) {
+  console.log("[webhook] Processing package purchase");
+
+  const metadata = session.metadata || {};
+  const packageCode = metadata.package_code;
+  const buyerUserId = metadata.buyer_user_id;
+  const isGift = metadata.is_gift === "true";
+  const recipientName = metadata.recipient_name || null;
+  const recipientEmail = metadata.recipient_email || null;
+  const giftMessage = metadata.gift_message || null;
+  const sessionId = session.id;
+  const amountTotal = session.amount_total; // in cents
+  const isTestPurchase = metadata.is_test === "true";
+  const metadataTestAmount = metadata.test_amount_cents
+    ? Number.parseInt(metadata.test_amount_cents, 10)
+    : null;
+
+  if (!packageCode || !buyerUserId) {
+    console.error("[webhook] Missing required package metadata");
+    return NextResponse.json({ error: "Invalid metadata" }, { status: 400 });
+  }
+
+  // Check if purchase already exists (idempotent)
+  const { data: existing } = await supabaseAdmin
+    .from("package_purchases")
+    .select("id")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+
+  if (existing) {
+    console.log("[webhook] Package purchase already processed");
+    return NextResponse.json({ ok: true });
+  }
+
+  // Insert package purchase record
+  const { data: purchase, error: insertError } = await supabaseAdmin
+    .from("package_purchases")
+    .insert({
+      buyer_user_id: buyerUserId,
+      package_code: packageCode,
+      is_gift: isGift,
+      recipient_name: recipientName,
+      recipient_email: recipientEmail,
+      gift_message: giftMessage,
+      stripe_session_id: sessionId,
+      amount_cents: amountTotal,
+      currency: "cad",
+      status: "paid",
+      is_test: isTestPurchase,
+      test_amount_cents:
+        isTestPurchase && metadataTestAmount
+          ? metadataTestAmount
+          : isTestPurchase
+          ? amountTotal
+          : null,
+    })
+    .select("id, created_at")
+    .single();
+
+  if (insertError) {
+    console.error("[webhook] Failed to insert package purchase:", insertError);
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+
+  console.log("[webhook] Package purchase created:", purchase.id);
+
+  // Get package details from catalog
+  const pkg = getPackageByCode(packageCode);
+  const packageName = pkg?.name || packageCode;
+
+  // Get buyer email from Stripe session first (most reliable), fallback to Supabase profile
+  let buyerEmail = session.customer_details?.email || session.customer_email;
+  let buyerName = "Customer";
+
+  if (!buyerEmail) {
+    // Fallback: lookup from Supabase auth
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(buyerUserId);
+    buyerEmail = authUser?.user?.email;
+  }
+
+  // Get buyer name from profile
+  const { data: buyer } = await supabaseAdmin
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", buyerUserId)
+    .maybeSingle();
+
+  if (buyer?.first_name && buyer?.last_name) {
+    buyerName = `${buyer.first_name} ${buyer.last_name}`.trim();
+  } else if (buyer?.first_name) {
+    buyerName = buyer.first_name;
+  }
+
+  // Send confirmation email to buyer (non-blocking)
+  if (buyerEmail) {
+    try {
+      await sendPackagePurchaseBuyerEmail({
+        buyerEmail,
+        buyerName,
+        packageName,
+        packageCode,
+        amountCents: amountTotal,
+        purchasedAt: purchase.created_at || new Date().toISOString(),
+        isGift,
+        recipientEmail,
+      });
+      console.log(`[webhook] Buyer email sent to ${buyerEmail}`);
+    } catch (emailError: any) {
+      console.error("[webhook] Failed to send buyer email:", emailError);
+      // Don't throw - continue processing
+    }
+  } else {
+    console.warn("[webhook] No buyer email available, skipping buyer email");
+  }
+
+  // Send gift recipient email if applicable (non-blocking)
+  if (isGift && recipientEmail && recipientName) {
+    try {
+      await sendPackageGiftRecipientEmail({
+        recipientEmail,
+        recipientName,
+        senderName: buyerName,
+        packageName,
+        packageCode,
+        amountCents: amountTotal,
+        giftMessage,
+      });
+      console.log(`[webhook] Gift recipient email sent to ${recipientEmail}`);
+    } catch (emailError: any) {
+      console.error("[webhook] Failed to send gift recipient email:", emailError);
+      // Don't throw - continue processing
+    }
+  } else if (isGift && recipientEmail && !recipientName) {
+    console.warn("[webhook] Gift recipient email skipped: missing recipient name");
   }
 
   return NextResponse.json({ ok: true });

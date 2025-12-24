@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const searchParams = req.nextUrl?.searchParams ?? new URLSearchParams();
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
 
     // 查询最近的邮件记录
     const { data, error } = await supabaseAdmin

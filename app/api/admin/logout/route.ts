@@ -1,9 +1,17 @@
 // app/api/admin/logout/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_AUTH_COOKIE } from "@/lib/admin/adminAuth";
 
-export async function POST() {
-  const res = NextResponse.redirect(new URL("/admin/login", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"));
-  res.cookies.set("admin_auth", "", {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function buildLogoutResponse(req: NextRequest) {
+  const url = req.nextUrl.clone();
+  url.pathname = "/admin/login";
+  url.searchParams.set("logged_out", "1");
+  url.searchParams.delete("t");
+  const res = NextResponse.redirect(url);
+  res.cookies.set(ADMIN_AUTH_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
@@ -11,4 +19,12 @@ export async function POST() {
     maxAge: 0,
   });
   return res;
+}
+
+export function GET(req: NextRequest) {
+  return buildLogoutResponse(req);
+}
+
+export function POST(req: NextRequest) {
+  return buildLogoutResponse(req);
 }

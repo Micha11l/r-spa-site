@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import WalletCard from '@/components/account/WalletCard';
+import PackagesSection from '@/components/account/PackagesSection';
 
 type Profile = {
   first_name?: string;
@@ -401,7 +402,12 @@ export default function AccountPage() {
             </a>
           </div>
         </section>
-  
+
+        {/* Holiday Packages */}
+        <div className="lg:col-span-2">
+          <PackagesSection />
+        </div>
+
         {/* Small-group classes */}
         <section className="rounded-xl border bg-white p-6 lg:col-span-2 space-y-6">
           <div>

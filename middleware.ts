@@ -6,7 +6,7 @@ const ADMIN_TOKEN = process.env.ADMIN_ENTRY_TOKEN;
 const PUBLIC_SECRET_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || "";
 
 const MAINT_ON = ["1", "true", "on"].includes(
-  (process.env.NEXT_PUBLIC_MAINTENANCE ?? "").toLowerCase()
+  (process.env.NEXT_PUBLIC_MAINTENANCE ?? "").toLowerCase(),
 );
 
 /**
@@ -19,6 +19,10 @@ export const config = {
     "/((?!_next/|favicon.ico|robots.txt|sitemap.xml|manifest.json|logo|images|gallery).*)",
   ],
 };
+
+function isAuthedAdmin(req: NextRequest) {
+  return Boolean(req.cookies.get("admin_auth")?.value);
+}
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -67,26 +71,33 @@ export function middleware(req: NextRequest) {
   // ===== Secret entry 2: query token -> set cookie then redirect to /admin =====
   // usage: /admin/login?t=YOUR_ADMIN_ENTRY_TOKEN
   const token = req.nextUrl.searchParams.get("t");
-  if (token && ADMIN_TOKEN && token === ADMIN_TOKEN) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/admin";
+  const tokenValid = Boolean(
+    token &&
+      ADMIN_TOKEN &&
+      token === ADMIN_TOKEN,
+  );
 
-    const res = NextResponse.redirect(url);
-    res.cookies.set({
-      name: "admin_auth",
-      value: "1",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 60 * 30,
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-    });
-    return res;
+  if (
+    tokenValid &&
+    !req.nextUrl.pathname.startsWith("/api/admin/login")
+  ) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = "/api/admin/login";
+    loginUrl.searchParams.set("t", token!);
+
+    const params = new URLSearchParams(req.nextUrl.searchParams);
+    params.delete("t");
+    const remaining = params.toString();
+    const nextPath = remaining ? `${req.nextUrl.pathname}?${remaining}` : req.nextUrl.pathname;
+
+    loginUrl.searchParams.set("next", nextPath || "/admin");
+    return NextResponse.redirect(loginUrl);
   }
 
   // ===== Admin auth gate: only /admin & /api/admin =====
-  const isAdminArea =
-    pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  const isAdminPage = pathname.startsWith("/admin");
+  const isAdminApi = pathname.startsWith("/api/admin");
+  const isAdminArea = isAdminPage || isAdminApi;
 
   // allow login/logout routes
   if (
@@ -99,14 +110,19 @@ export function middleware(req: NextRequest) {
   }
 
   if (isAdminArea) {
-    const authed = req.cookies.get("admin_auth")?.value === "1";
+    const authed = isAuthedAdmin(req);
+
     if (!authed) {
+      // ✅ API：别重定向，直接 401 JSON（否则前端 fetch 会被塞 HTML）
+      if (isAdminApi) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+
+      // ✅ 页面：重定向到 admin login，并带 next
       const url = req.nextUrl.clone();
       url.pathname = "/admin/login";
 
-      const dest = pathname.startsWith("/api")
-        ? "/admin"
-        : pathname + (search || "");
+      const dest = pathname + (search || "");
       url.searchParams.set("next", dest);
 
       return NextResponse.redirect(url);

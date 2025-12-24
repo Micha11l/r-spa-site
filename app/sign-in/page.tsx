@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import SignInForm from "@/components/SignInForm";
+import SignInClient from "./SignInClient";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Sign in" };
 
 export default function Page() {
@@ -10,7 +12,9 @@ export default function Page() {
         <div className="max-w-3xl">
           <h1 className="h1">Sign in</h1>
           <p className="text-zinc-600 mb-6">Use your email and password to sign in.</p>
-          <SignInForm />
+          <Suspense fallback={<div className="text-sm text-zinc-500">Loading…</div>}>
+            <SignInClient />
+          </Suspense>
         </div>
       </div>
     </section>
