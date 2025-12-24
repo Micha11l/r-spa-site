@@ -418,8 +418,15 @@ export default function BookingForm({
   const hasDateTime = !!(form.date && form.time);
   const hasCustomerInfo = !!(form.name && form.email && form.phone);
 
-  // Get today's date in YYYY-MM-DD format (local time)
-  const todayDate = new Date().toISOString().split("T")[0];
+  // Get today's date in YYYY-MM-DD format (local time, not UTC)
+  const getLocalISODate = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const todayDate = getLocalISODate();
 
   // Check if selected datetime is in the past
   const isDatetimeInPast = (): boolean => {
@@ -448,21 +455,21 @@ export default function BookingForm({
     return now.toTimeString().slice(0, 5); // HH:MM format
   };
 
-  // Compute time options for mobile select based on selected date
-  const mobileTimeOptions = useMemo(() => {
+  // Compute time options for select based on selected date
+  const timeOptions = useMemo(() => {
     if (form.date === todayDate) {
       const minTime = roundUpToStep(getMinTimeForToday(), TIME_STEP_MIN);
       return buildTimeOptions(minTime, "21:00", TIME_STEP_MIN);
     }
     return buildTimeOptions("09:00", "21:00", TIME_STEP_MIN);
-  }, [form.date, todayDate]);
+  }, [form.date]);
 
   // Reset form.time if it becomes invalid when date changes
   useEffect(() => {
-    if (form.time && !mobileTimeOptions.includes(form.time)) {
+    if (form.time && !timeOptions.includes(form.time)) {
       setForm((prev) => ({ ...prev, time: "" }));
     }
-  }, [form.date, form.time, mobileTimeOptions]);
+  }, [form.date, form.time, timeOptions]);
 
   // Step indicators
   const steps = [
@@ -1104,24 +1111,22 @@ export default function BookingForm({
               <label className="block text-sm mb-1" htmlFor="booking-date">
                 Date
               </label>
-              <div className="w-full min-w-0 box-border rounded-md border border-zinc-200 bg-white px-3 py-2 overflow-hidden">
-                <input
-                  id="booking-date"
-                  type="date"
-                  value={form.date}
-                  min={todayDate}
-                  lang="en-CA"
-                  placeholder="YYYY-MM-DD"
-                  onChange={(e) => handleFieldChange("date", e.target.value)}
-                  onBlur={() => markTouched("date")}
-                  required
-                  className="w-full min-w-0 bg-transparent border-0 p-0 focus:outline-none focus:ring-0 text-zinc-900 appearance-none"
-                  aria-invalid={Boolean(showFieldError("date"))}
-                  aria-describedby={
-                    showFieldError("date") ? "booking-date-error" : undefined
-                  }
-                />
-              </div>
+              <input
+                id="booking-date"
+                type="date"
+                value={form.date}
+                min={todayDate}
+                lang="en-CA"
+                placeholder="YYYY-MM-DD"
+                onChange={(e) => handleFieldChange("date", e.target.value)}
+                onBlur={() => markTouched("date")}
+                required
+                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-zinc-900"
+                aria-invalid={Boolean(showFieldError("date"))}
+                aria-describedby={
+                  showFieldError("date") ? "booking-date-error" : undefined
+                }
+              />
               {showFieldError("date") && (
                 <p
                   id="booking-date-error"
@@ -1135,42 +1140,25 @@ export default function BookingForm({
               <label className="block text-sm mb-1" htmlFor="booking-time">
                 Time
               </label>
-              {isDesktop ? (
-                <input
-                  id="booking-time"
-                  type="time"
-                  value={form.time}
-                  min={form.date === todayDate ? getMinTimeForToday() : undefined}
-                  onChange={(e) => handleFieldChange("time", e.target.value)}
-                  onBlur={() => markTouched("time")}
-                  required
-                  className="w-full max-w-full box-border rounded-md border px-3 py-2"
-                  aria-invalid={Boolean(showFieldError("time"))}
-                  aria-describedby={
-                    showFieldError("time") ? "booking-time-error" : undefined
-                  }
-                />
-              ) : (
-                <select
-                  id="booking-time"
-                  value={form.time}
-                  onChange={(e) => handleFieldChange("time", e.target.value)}
-                  onBlur={() => markTouched("time")}
-                  required
-                  className="w-full max-w-full box-border rounded-md border px-3 py-2"
-                  aria-invalid={Boolean(showFieldError("time"))}
-                  aria-describedby={
-                    showFieldError("time") ? "booking-time-error" : undefined
-                  }
-                >
-                  <option value="">Select time</option>
-                  {mobileTimeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                id="booking-time"
+                value={form.time}
+                onChange={(e) => handleFieldChange("time", e.target.value)}
+                onBlur={() => markTouched("time")}
+                required
+                className="w-full max-w-full box-border rounded-md border border-zinc-200 px-3 py-2"
+                aria-invalid={Boolean(showFieldError("time"))}
+                aria-describedby={
+                  showFieldError("time") ? "booking-time-error" : undefined
+                }
+              >
+                <option value="">Select time</option>
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
               {showFieldError("time") && (
                 <p
                   id="booking-time-error"
