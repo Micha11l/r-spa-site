@@ -60,8 +60,8 @@ export default function HolidayPackagesClient({ packages }: Props) {
       router.push(`/packages/checkout?package=${buyParam}`);
     } else {
       // Redirect to sign-up with return URL
-      const returnUrl = encodeURIComponent(`/holiday-packages?buy=${buyParam}`);
-      router.push(`/sign-up?next=${returnUrl}`);
+      const destination = `/packages/checkout?package=${buyParam}`;
+      router.push(`/sign-in?redirect=${encodeURIComponent(destination)}`);
     }
   }, [isCheckingAuth, isAuthenticated, searchParams, packages, router]);
 
@@ -69,8 +69,8 @@ export default function HolidayPackagesClient({ packages }: Props) {
     if (isAuthenticated) {
       router.push(`/packages/checkout?package=${packageCode}`);
     } else {
-      const returnUrl = encodeURIComponent(`/holiday-packages?buy=${packageCode}`);
-      router.push(`/sign-up?next=${returnUrl}`);
+      const destination = `/packages/checkout?package=${packageCode}`;
+      router.push(`/sign-in?redirect=${encodeURIComponent(destination)}`);
     }
   };
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getPackageByCode, formatPackagePrice, type PackageCatalogItem } from "@/lib/packages.catalog";
+import { getPackageByCode, formatPackagePrice, isPackageAvailable, type PackageCatalogItem } from "@/lib/packages.catalog";
 
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
@@ -14,13 +14,19 @@ export default function CheckoutClient() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGift, setIsGift] = useState(false);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [giftMessage, setGiftMessage] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const supabase = createClient();
 
   // Check authentication and load package
   useEffect(() => {
     const init = async () => {
       try {
         // Check auth
-        const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
@@ -48,6 +54,13 @@ export default function CheckoutClient() {
           return;
         }
 
+        // Check if package is still available for purchase
+        if (!isPackageAvailable(packageCode)) {
+          setError("This package is no longer available for purchase.");
+          setIsCheckingAuth(false);
+          return;
+        }
+
         setPkg(packageData);
       } catch (e) {
         setError("An error occurred. Please try again.");
@@ -57,15 +70,74 @@ export default function CheckoutClient() {
     };
 
     init();
-  }, [searchParams]);
+  }, [searchParams, supabase]);
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {
     if (!isCheckingAuth && !isAuthenticated) {
       const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-      router.push(`/sign-in?next=${returnUrl}`);
+      router.push(`/sign-in?redirect=${returnUrl}`);
     }
   }, [isCheckingAuth, isAuthenticated, router]);
+
+  // Handle payment
+  const handleProceedToPayment = async () => {
+    if (!pkg) return;
+
+    // Validate gift fields if gift option is selected
+    if (isGift) {
+      if (!recipientName.trim() || !recipientEmail.trim()) {
+        setPaymentError("Recipient name and email are required for gifts.");
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    setPaymentError(null);
+
+    try {
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session || !session.access_token) {
+        // Redirect to sign-in if no session
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        router.push(`/sign-in?redirect=${returnUrl}`);
+        return;
+      }
+
+      const response = await fetch("/api/stripe/package-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          packageCode: pkg.code,
+          isGift,
+          recipientName: isGift ? recipientName : undefined,
+          recipientEmail: isGift ? recipientEmail : undefined,
+          message: isGift ? giftMessage : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      setPaymentError(err.message || "Failed to process payment");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (isCheckingAuth) {
     return (
@@ -135,14 +207,72 @@ export default function CheckoutClient() {
         </div>
       </div>
 
-      {/* Payment Integration Coming Soon */}
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-8 text-center">
-        <h3 className="text-xl font-semibold text-zinc-900 mb-4">
-          Payment Integration Coming Soon
-        </h3>
-        <p className="text-sm text-zinc-600 mb-6">
-          We&apos;re currently setting up secure payment processing. Please check back soon or contact us to complete your purchase.
-        </p>
+      {/* Gift Option */}
+      <div className="bg-white border-2 border-zinc-200 rounded-2xl p-6 space-y-4">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isGift}
+            onChange={(e) => setIsGift(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <span className="font-semibold text-zinc-900">Buying as a gift?</span>
+        </label>
+
+        {isGift && (
+          <div className="space-y-4 pl-7 border-l-2 border-zinc-200">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">
+                Recipient Name *
+              </label>
+              <input
+                type="text"
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2"
+                required={isGift}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">
+                Recipient Email *
+              </label>
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2"
+                required={isGift}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">
+                Gift Message (Optional)
+              </label>
+              <textarea
+                value={giftMessage}
+                onChange={(e) => setGiftMessage(e.target.value)}
+                rows={3}
+                maxLength={500}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2"
+                placeholder="Add a personal message..."
+              />
+              <p className="text-xs text-zinc-500 mt-1">
+                {giftMessage.length}/500 characters
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Payment Button */}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-8">
+        {paymentError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+            {paymentError}
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href="/holiday-packages"
@@ -151,10 +281,11 @@ export default function CheckoutClient() {
             ← Back to Packages
           </Link>
           <button
-            disabled
-            className="inline-flex items-center justify-center px-6 py-3 bg-zinc-300 text-zinc-500 rounded-xl font-semibold cursor-not-allowed"
+            onClick={handleProceedToPayment}
+            disabled={isProcessing}
+            className="inline-flex items-center justify-center px-6 py-3 bg-zinc-900 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-colors disabled:bg-zinc-400 disabled:cursor-not-allowed"
           >
-            Proceed to Payment (Coming Soon)
+            {isProcessing ? "Processing..." : "Proceed to Payment"}
           </button>
         </div>
       </div>

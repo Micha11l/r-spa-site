@@ -1,7 +1,30 @@
 // app/api/admin/login/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  ADMIN_AUTH_COOKIE,
+  ADMIN_AUTH_MAX_AGE,
+  signAdminToken,
+} from "@/lib/admin/adminAuth";
 
-export async function POST(req: Request) {
+function sanitizeNextPath(next: string) {
+  if (!next.startsWith("/") || next.startsWith("/api")) {
+    return "/admin";
+  }
+  return next;
+}
+
+function setSignedCookie(res: NextResponse) {
+  const token = signAdminToken();
+  res.cookies.set(ADMIN_AUTH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: ADMIN_AUTH_MAX_AGE,
+  });
+}
+
+export async function POST(req: NextRequest) {
   const ct = req.headers.get("content-type") || "";
   let pass = "";
   let next = "/admin";
@@ -17,19 +40,38 @@ export async function POST(req: Request) {
   }
 
   if (!process.env.ADMIN_PASSCODE || pass !== process.env.ADMIN_PASSCODE) {
-    // 也可以改成重定向回登录页并带 error=1
-    return NextResponse.json({ ok: false, error: "Invalid passcode" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "Invalid passcode" },
+      { status: 401 },
+    );
   }
 
-  if (next.startsWith("/api")) next = "/admin";
+  const dest = sanitizeNextPath(next);
+  const res = NextResponse.redirect(new URL(dest, req.url), { status: 303 });
+  setSignedCookie(res);
+  return res;
+}
 
-  const res = NextResponse.redirect(new URL(next, req.url), { status: 303 });
-  res.cookies.set("admin_auth", "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl;
+  const token = searchParams.get("t");
+
+  if (!token) {
+    return NextResponse.json(
+      { ok: false, error: "Missing entry token" },
+      { status: 400 },
+    );
+  }
+
+  if (!process.env.ADMIN_ENTRY_TOKEN || token !== process.env.ADMIN_ENTRY_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: "Invalid entry token" },
+      { status: 401 },
+    );
+  }
+
+  const dest = sanitizeNextPath(searchParams.get("next") || "/admin");
+  const res = NextResponse.redirect(new URL(dest, req.url), { status: 303 });
+  setSignedCookie(res);
   return res;
 }

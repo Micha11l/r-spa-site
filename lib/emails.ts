@@ -166,7 +166,7 @@ type SendEmailTrackedParams = {
   useFallback?: boolean; // 是否启用 Resend fallback
 };
 
-async function sendEmailTracked(
+export async function sendEmailTracked(
   params: SendEmailTrackedParams
 ): Promise<{ messageId?: string; success: boolean }> {
   const {
@@ -744,6 +744,243 @@ export async function sendGiftCardUseNotification(params: {
       amount_used: amountUsed,
       new_balance: newBalance,
       service_name: serviceName,
+    },
+  });
+}
+
+// =====================================================
+// Package Purchase Email Functions
+// =====================================================
+
+/**
+ * Send package purchase confirmation email to buyer
+ */
+export async function sendPackagePurchaseBuyerEmail(params: {
+  buyerEmail: string;
+  buyerName: string;
+  packageName: string;
+  packageCode: string;
+  amountCents: number;
+  purchasedAt: string;
+  isGift: boolean;
+  recipientEmail?: string | null;
+}) {
+  const {
+    buyerEmail,
+    buyerName,
+    packageName,
+    packageCode,
+    amountCents,
+    purchasedAt,
+    isGift,
+    recipientEmail,
+  } = params;
+
+  const amountFormatted = `CA$${(amountCents / 100).toFixed(0)}`;
+  const purchaseDate = new Date(purchasedAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const subject = "Your Holiday Package Purchase Confirmation";
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#f6f7f9; padding:24px;">
+      <table align="center" style="max-width:600px; background:#fff; padding:32px; border-radius:12px; border:1px solid #e5e7eb;">
+        <tr>
+          <td>
+            <div style="text-align:center; padding-bottom:24px;">
+              <img src="${SITE_URL}/logo.png" width="96" style="border-radius:8px;" />
+            </div>
+
+            <h1 style="margin:0 0 8px; font-weight:700; font-size:28px; color:#111; text-align:center;">Purchase Confirmed!</h1>
+            <p style="margin:0 0 32px; color:#6b7280; text-align:center; font-size:16px;">Thank you for your purchase${isGift ? " of a gift package" : ""}.</p>
+
+            <div style="background:#fafafa; border:1px solid #e5e7eb; border-radius:8px; padding:24px; margin:24px 0;">
+              <h2 style="margin:0 0 16px; font-size:20px; font-weight:600; color:#111;">${packageName}</h2>
+              <table style="width:100%;">
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Package Code:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${packageCode}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Amount Paid:</td>
+                  <td style="padding:8px 0; font-weight:700; font-size:20px; text-align:right; color:#111;">${amountFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Purchase Date:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${purchaseDate}</td>
+                </tr>
+                ${isGift && recipientEmail ? `
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Gift Sent To:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${recipientEmail}</td>
+                </tr>
+                ` : ""}
+              </table>
+            </div>
+
+            ${isGift ? `
+            <div style="background:#f0f9ff; border-left:4px solid #0ea5e9; border-radius:4px; padding:16px; margin:24px 0;">
+              <p style="margin:0; color:#0c4a6e; font-size:14px;">
+                <strong>🎁 Gift Package:</strong> ${recipientEmail ? `We've sent a notification to ${recipientEmail} about their gift!` : "The recipient will be notified about their gift."}
+              </p>
+            </div>
+            ` : ""}
+
+            <div style="text-align:center; margin:32px 0;">
+              <a href="${SITE_URL}/booking" style="display:inline-block; background:#111; color:#fff; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:600; font-size:16px; margin:0 8px 8px;">
+                Book Your Appointment
+              </a>
+              <br/>
+              <a href="${SITE_URL}/account" style="display:inline-block; color:#111; padding:14px 32px; text-decoration:none; font-weight:600; font-size:16px; margin:8px;">
+                View My Account
+              </a>
+            </div>
+
+            <p style="color:#6b7280; font-size:14px; margin:24px 0 0; text-align:center;">
+              Questions? <a href="${SITE_URL}/#contact" style="color:#111; text-decoration:underline;">Contact us</a>
+            </p>
+
+            <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0"/>
+            <p style="font-size:12px; color:#6b7280; text-align:center;">
+              ${SITE_NAME} · ${SITE_ADDRESS} ·
+              <a href="mailto:${CONTACT_EMAIL}" style="color:#6b7280; text-decoration:underline;">
+                ${CONTACT_EMAIL}
+              </a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  await sendEmailTracked({
+    eventType: "package_purchase_buyer",
+    to: buyerEmail,
+    subject,
+    html,
+    useFallback: true,
+    meta: {
+      package_code: packageCode,
+      package_name: packageName,
+      amount_cents: amountCents,
+      is_gift: isGift,
+      recipient_email: recipientEmail,
+    },
+  });
+}
+
+/**
+ * Send package gift notification email to recipient
+ */
+export async function sendPackageGiftRecipientEmail(params: {
+  recipientEmail: string;
+  recipientName: string;
+  senderName: string;
+  packageName: string;
+  packageCode: string;
+  amountCents: number;
+  giftMessage?: string | null;
+}) {
+  const {
+    recipientEmail,
+    recipientName,
+    senderName,
+    packageName,
+    packageCode,
+    amountCents,
+    giftMessage,
+  } = params;
+
+  const amountFormatted = `CA$${(amountCents / 100).toFixed(0)}`;
+  const subject = "You've received a Holiday Package Gift";
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#f6f7f9; padding:24px;">
+      <table align="center" style="max-width:600px; background:#fff; padding:32px; border-radius:12px; border:1px solid #e5e7eb;">
+        <tr>
+          <td>
+            <div style="text-align:center; padding-bottom:24px;">
+              <img src="${SITE_URL}/logo.png" width="96" style="border-radius:8px;" />
+            </div>
+
+            <div style="text-align:center; margin-bottom:32px;">
+              <div style="font-size:48px; margin-bottom:16px;">🎁</div>
+              <h1 style="margin:0 0 8px; font-weight:700; font-size:28px; color:#111;">You've Received a Gift!</h1>
+              <p style="margin:0; color:#6b7280; font-size:16px;">
+                ${senderName} has sent you a holiday package
+              </p>
+            </div>
+
+            ${giftMessage ? `
+            <div style="background:#fef3c7; border-left:4px solid #f59e0b; border-radius:4px; padding:16px; margin:24px 0;">
+              <p style="margin:0 0 8px; color:#92400e; font-weight:600; font-size:14px;">Personal Message:</p>
+              <p style="margin:0; color:#78350f; font-size:14px; font-style:italic;">"${giftMessage}"</p>
+            </div>
+            ` : ""}
+
+            <div style="background:#fafafa; border:1px solid #e5e7eb; border-radius:8px; padding:24px; margin:24px 0;">
+              <h2 style="margin:0 0 16px; font-size:20px; font-weight:600; color:#111;">${packageName}</h2>
+              <table style="width:100%;">
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Package Code:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${packageCode}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Value:</td>
+                  <td style="padding:8px 0; font-weight:700; font-size:20px; text-align:right; color:#111;">${amountFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">From:</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${senderName}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="background:#f0f9ff; border-left:4px solid #0ea5e9; border-radius:4px; padding:16px; margin:24px 0;">
+              <p style="margin:0; color:#0c4a6e; font-size:14px;">
+                <strong>Next Steps:</strong> This package is ready for you to use! Book your appointment at your convenience.
+              </p>
+            </div>
+
+            <div style="text-align:center; margin:32px 0;">
+              <a href="${SITE_URL}/booking" style="display:inline-block; background:#111; color:#fff; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:600; font-size:16px;">
+                Book My Appointment
+              </a>
+            </div>
+
+            <p style="color:#6b7280; font-size:14px; margin:24px 0 0; text-align:center;">
+              Questions? <a href="${SITE_URL}/#contact" style="color:#111; text-decoration:underline;">Contact us</a>
+            </p>
+
+            <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0"/>
+            <p style="font-size:12px; color:#6b7280; text-align:center;">
+              ${SITE_NAME} · ${SITE_ADDRESS} ·
+              <a href="mailto:${CONTACT_EMAIL}" style="color:#6b7280; text-decoration:underline;">
+                ${CONTACT_EMAIL}
+              </a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  await sendEmailTracked({
+    eventType: "package_gift_recipient",
+    to: recipientEmail,
+    subject,
+    html,
+    useFallback: true,
+    meta: {
+      package_code: packageCode,
+      package_name: packageName,
+      amount_cents: amountCents,
+      sender_name: senderName,
+      recipient_name: recipientName,
+      gift_message: giftMessage,
     },
   });
 }

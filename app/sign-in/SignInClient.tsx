@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignInForm() {
+export default function SignInClient() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,9 @@ export default function SignInForm() {
         password,
       });
       if (error) throw error;
-      window.location.href = "/account"; // ✅ 登录成功去 /account
+      const redirectParam = searchParams.get("redirect");
+      const destination = redirectParam || "/account";
+      window.location.href = destination;
     } catch (err: any) {
       setError(err.message || "Sign in failed");
     } finally {

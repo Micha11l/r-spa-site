@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Form = {
@@ -22,8 +23,9 @@ type Form = {
   marketing_email?: boolean;
 };
 
-export default function SignUpForm() {
+export default function SignUpClient() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<"form" | "code">("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +144,11 @@ export default function SignUpForm() {
 
       // 强制走登录页
       await supabase.auth.signOut();
-      window.location.href = "/sign-in?verified=1";
+      const redirectParam = searchParams.get("redirect");
+      const signInUrl = redirectParam
+        ? `/sign-in?verified=1&redirect=${encodeURIComponent(redirectParam)}`
+        : "/sign-in?verified=1";
+      window.location.href = signInUrl;
     } catch (err: any) {
       setError(err.message || "Verification failed");
     } finally {

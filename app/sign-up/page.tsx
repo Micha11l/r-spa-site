@@ -1,6 +1,9 @@
-export const metadata = { title: "Create account" };
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import SignUpClient from "./SignUpClient";
 
-import SignUpForm from "@/components/SignUpForm";
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Create account" };
 
 export default function SignUpPage() {
   return (
@@ -26,7 +29,9 @@ export default function SignUpPage() {
 
           {/* 右侧：注册表单 */}
           <div className="order-1 md:order-2">
-            <SignUpForm />
+            <Suspense fallback={<div className="text-sm text-zinc-500">Loading…</div>}>
+              <SignUpClient />
+            </Suspense>
           </div>
         </div>
       </div>

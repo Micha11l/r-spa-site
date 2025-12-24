@@ -25,84 +25,67 @@ export async function POST(
     // Convert dollars to cents
     const usedCents = Math.round(amount * 100);
 
-    // 1. Load the gift card first
-    const { data: giftCard, error: fetchError } = await supabaseAdmin
-      .from("gift_cards")
-      .select("id, code, remaining_amount, status")
-      .eq("id", giftCardId)
-      .single();
+    // Call RPC to record gift card use atomically
+    const { data, error } = await supabaseAdmin.rpc("record_gift_card_use", {
+      p_gift_card_id: giftCardId,
+      p_amount_cents: usedCents,
+      p_service_name: serviceName || null,
+      p_notes: notes || null,
+      p_created_by: null
+    });
+    
 
-    if (fetchError || !giftCard) {
-      return NextResponse.json(
-        { error: "not_found" },
-        { status: 404 }
-      );
-    }
+    if (error) {
+      console.error("[staff/gift-card/use] RPC error:", error);
 
-    // 2. Check if status is active
-    if (giftCard.status !== "active") {
-      return NextResponse.json(
-        { error: "Gift card is not active" },
-        { status: 400 }
-      );
-    }
+      // Handle specific error cases
+      if (error.message.includes("not_found")) {
+        return NextResponse.json(
+          { error: "not_found" },
+          { status: 404 }
+        );
+      }
+      if (error.message.includes("invalid_amount")) {
+        return NextResponse.json(
+          { error: "invalid_amount" },
+          { status: 400 }
+        );
+      }
+      if (error.message.includes("not_active")) {
+        return NextResponse.json(
+          { error: "not_active" },
+          { status: 400 }
+        );
+      }
+      if (error.message.includes("insufficient_balance")) {
+        return NextResponse.json(
+          { error: "insufficient_balance" },
+          { status: 409 }
+        );
+      }
 
-    // 3. Validate usedCents <= remaining_amount
-    if (usedCents > giftCard.remaining_amount) {
-      return NextResponse.json(
-        { error: "insufficient_balance" },
-        { status: 400 }
-      );
-    }
-
-    // Calculate balances
-    const balanceBefore = giftCard.remaining_amount;
-    const balanceAfter = balanceBefore - usedCents;
-
-    // 4. Insert transaction with gift_card_code
-    const { data: transaction, error: insertError } = await supabaseAdmin
-      .from("gift_card_transactions")
-      .insert({
-        gift_card_id: giftCard.id,
-        gift_card_code: giftCard.code, // NOT NULL - this is the key fix
-        amount_cents: usedCents,
-        balance_before: balanceBefore,
-        balance_after: balanceAfter,
-        transaction_type: "use",
-        service_name: serviceName || null,
-        notes: notes || null,
-      })
-      .select("id")
-      .single();
-
-    if (insertError) {
-      console.error("[staff/gift-card/use] Insert error:", insertError);
       return NextResponse.json(
         { error: "Failed to record transaction" },
         { status: 500 }
       );
     }
 
-    // 5. Update gift_cards.remaining_amount
-    const { error: updateError } = await supabaseAdmin
-      .from("gift_cards")
-      .update({ remaining_amount: balanceAfter })
-      .eq("id", giftCard.id);
-
-    if (updateError) {
-      console.error("[staff/gift-card/use] Update error:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update gift card balance" },
-        { status: 500 }
-      );
+    // Extract result (handle both array and single object)
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) {
+      return NextResponse.json({ error: "Failed to record transaction" }, { status: 500});
     }
-
     // Send notification email (non-blocking)
     try {
       await sendGiftCardUseNotification({
-        giftCard: { ...giftCard, remaining_amount: balanceAfter },
+        giftCard: {
+          id: giftCardId,
+          code: result.gift_card_code,
+          remaining_amount: result.balance_after_cents,
+          status: "active"
+        },
         amountUsed: usedCents,
-        newBalance: balanceAfter,
+        newBalance: result.balance_after_cents,
         serviceName: serviceName || "Service",
       });
     } catch (emailError) {
@@ -110,12 +93,12 @@ export async function POST(
       // Don't fail the request if email fails
     }
 
-    // 6. Return updated gift card and transaction id
+    // Return success response
     return NextResponse.json({
       success: true,
-      code: giftCard.code,
-      remaining_amount: balanceAfter,
-      transaction_id: transaction.id,
+      code: result.gift_card_code,
+      remaining_amount: result.balance_after_cents,
+      transaction_id: result.transaction_id,
     });
   } catch (error: any) {
     console.error("[staff/gift-card/use] Error:", error);
