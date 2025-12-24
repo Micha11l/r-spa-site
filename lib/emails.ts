@@ -1,4 +1,25 @@
 // lib/emails.ts — Zoho SMTP 版（专业 HTML 模板 + 真实地址 + logo）
+/*
+邮件追踪数据库表 SQL：
+
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  to_email TEXT NOT NULL,
+  subject TEXT,
+  provider TEXT,
+  status TEXT NOT NULL,
+  message_id TEXT,
+  error TEXT,
+  meta JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS email_outbox_created_idx ON email_outbox (created_at DESC);
+CREATE INDEX IF NOT EXISTS email_outbox_to_email_idx ON email_outbox (to_email);
+CREATE INDEX IF NOT EXISTS email_outbox_event_type_idx ON email_outbox (event_type);
+*/
+
 import nodemailer from "nodemailer";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -7,6 +28,7 @@ import { makeICS } from "./ics";
 import { Resend } from "resend";
 import { buildEmailTemplate } from "./emailTemplates";
 import { renderGiftPdfBuffer } from "./gift-pdf";
+import { supabaseAdmin } from "./supabase/admin";
 dayjs.extend(utc);
 dayjs.extend(tz);
 
@@ -56,21 +78,17 @@ export async function sendDepositEmail(
   const { subject, html } = buildEmailTemplate("deposit", name, {
     checkoutUrl,
   });
-  const result = await resend.emails.send({
-    from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+
+  const result = await sendEmailTracked({
+    eventType: "deposit_link",
     to,
     subject,
     html,
+    useFallback: true,
+    meta: { name, checkoutUrl },
   });
 
-  if (result.error) {
-    console.error("[email][deposit] failed:", result.error);
-    throw new Error(result.error.message || "Failed to send deposit email");
-  }
-
-  const messageId = result.data?.id;
-  console.log("[email][deposit] queued", { to, messageId });
-  return { messageId };
+  return { messageId: result.messageId };
 }
 
 export async function sendRefuseEmail(
@@ -79,11 +97,14 @@ export async function sendRefuseEmail(
   reason?: string,
 ) {
   const { subject, html } = buildEmailTemplate("refuse", name, { reason });
-  await resend.emails.send({
-    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+
+  await sendEmailTracked({
+    eventType: "booking_refused",
     to,
     subject,
     html,
+    useFallback: true,
+    meta: { name, reason },
   });
 }
 
@@ -97,11 +118,14 @@ export async function sendPaymentSuccessEmail(
     serviceName,
     time,
   });
-  await resend.emails.send({
-    from: `Rejuvenessence <noreply@rejuvenessence.org>`,
+
+  await sendEmailTracked({
+    eventType: "payment_success",
     to,
     subject,
     html,
+    useFallback: true,
+    meta: { name, serviceName, time },
   });
 }
 
@@ -121,6 +145,133 @@ function buildTransport() {
   });
 }
 
+// =====================================================
+// 统一邮件发送入口（带追踪）
+// =====================================================
+
+type SendEmailTrackedParams = {
+  eventType: string;
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
+  replyTo?: string;
+  bccOwner?: boolean;
+  meta?: Record<string, any>;
+  useFallback?: boolean; // 是否启用 Resend fallback
+};
+
+async function sendEmailTracked(
+  params: SendEmailTrackedParams
+): Promise<{ messageId?: string; success: boolean }> {
+  const {
+    eventType,
+    to,
+    subject,
+    html,
+    text,
+    attachments,
+    replyTo,
+    bccOwner,
+    meta,
+    useFallback = false,
+  } = params;
+
+  let provider = "zoho";
+  let status = "queued";
+  let messageId: string | undefined;
+  let error: string | undefined;
+
+  // 1. 默认用 Zoho SMTP 发送
+  try {
+    const transporter = buildTransport();
+    const owner = process.env.RESEND_OWNER_EMAIL!;
+
+    const mailOptions: any = {
+      from: FROM_ADDR,
+      to,
+      subject,
+      text,
+      html,
+      replyTo: replyTo || process.env.ZOHO_SMTP_USER,
+      envelope: {
+        from: process.env.ZOHO_SMTP_USER!,
+        to: [to],
+      },
+    };
+
+    if (attachments) {
+      mailOptions.attachments = attachments;
+    }
+
+    if (bccOwner) {
+      mailOptions.bcc = owner;
+      mailOptions.envelope.bcc = [owner];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    messageId = info.messageId;
+    status = "sent";
+    console.log(`[email][${eventType}] sent via Zoho to ${to}`);
+  } catch (zohoError: any) {
+    console.error(`[email][${eventType}] Zoho failed:`, zohoError.message);
+    error = zohoError.message;
+    status = "failed";
+
+    // 2. Fallback to Resend if enabled
+    if (useFallback && html) {
+      try {
+        provider = "resend";
+        const result = await resend.emails.send({
+          from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
+          to,
+          subject,
+          html,
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
+
+        messageId = result.data?.id;
+        status = "sent";
+        error = undefined;
+        console.log(`[email][${eventType}] sent via Resend to ${to}`);
+      } catch (resendError: any) {
+        console.error(
+          `[email][${eventType}] Resend also failed:`,
+          resendError.message
+        );
+        error = `Zoho: ${error}; Resend: ${resendError.message}`;
+      }
+    }
+  }
+
+  // 3. 写入 email_outbox（无论成功失败）
+  try {
+    await supabaseAdmin.from("email_outbox").insert({
+      event_type: eventType,
+      to_email: to,
+      subject,
+      provider,
+      status,
+      message_id: messageId || null,
+      error: error || null,
+      meta: meta || null,
+    });
+  } catch (dbError: any) {
+    console.error(`[email][${eventType}] Failed to log to outbox:`, dbError);
+    // 不要因为日志失败而影响业务
+  }
+
+  return { messageId, success: status === "sent" };
+}
+
 function fmtWhen(iso: string) {
   const d = dayjs(iso).tz(TZ);
   return `${d.format("ddd, MMM D, YYYY")} · ${d.format("h:mm A")} (${TZ})`;
@@ -134,47 +285,29 @@ function diffMin(aISO: string, bISO: string) {
 }
 
 export async function sendBookingEmails(params: BookingEmailParams) {
-  const transporter = buildTransport();
-
-  // 连接自检
-  await transporter.verify();
-
-  const owner = process.env.RESEND_OWNER_EMAIL!; // e.g. booking@nesses.ca
+  const owner = process.env.RESEND_OWNER_EMAIL!;
   const whenStr = fmtWhen(params.startISO);
   const durMin = diffMin(params.startISO, params.endISO);
 
-  // ===== 店家邮件（纯文本，不带附件）=====
-  const ownerText = [
-    `New booking request`,
-    ``,
-    `Service:  ${params.service}`,
-    `When:     ${whenStr}  (${durMin} min)`,
-    ``,
-    `Client:   ${params.name}`,
-    `Email:    ${params.email}`,
-    `Phone:    ${params.phone}`,
-    `Notes:    ${params.notes || "-"}`,
-    ``,
-    `Tips:`,
-    `- Reply to this email to contact the client directly (reply-to set).`,
-  ].join("\n");
+  const meta = {
+    booking_startISO: params.startISO,
+    booking_endISO: params.endISO,
+    service: params.service,
+    customer_email: params.email,
+  };
 
-  await transporter.sendMail({
-    from: FROM_ADDR,
-    to: owner,
-    subject: `New booking · ${params.service} · ${whenStr} · ${params.name}`,
-    text: ownerText,
-    replyTo: `${params.name} <${params.email}>`,
-    envelope: {
-      from: process.env.ZOHO_SMTP_USER!,
-      to: [owner],
-    },
-  });
+  // ===== 先发客户邮件（HTML + 纯文本 + .ics）=====
+  try {
+    const depositAmount = process.env.SECURITY_DEPOSIT_CAD || "75";
+    const ics = makeICS(
+      `${SITE_NAME} — ${params.service}`,
+      `${SITE_NAME} session`,
+      SITE_ADDRESS,
+      params.startISO,
+      params.endISO,
+    );
 
-  // ===== 客户邮件（HTML + 纯文本 + .ics）=====
-  const depositAmount = process.env.SECURITY_DEPOSIT_CAD || "75";
-
-  const customerText = `Hi ${params.name},
+    const customerText = `Hi ${params.name},
 
 We've received your booking request! Here are the details:
 Service:  ${params.service}
@@ -194,17 +327,8 @@ If you need to change the time, just reply to this email.
 — ${SITE_NAME}
 `;
 
-  const ics = makeICS(
-    `${SITE_NAME} — ${params.service}`, // summary
-    `${SITE_NAME} session`, // description
-    SITE_ADDRESS, // location
-    params.startISO,
-    params.endISO,
-  );
-
-  const logoUrl = `${SITE_URL}/logo.png`; // 你的 /public/logo.png 会映射到 /logo.png
-
-  const customerHtml = `
+    const logoUrl = `${SITE_URL}/logo.png`;
+    const customerHtml = `
   <div style="background:#f6f7f9;padding:24px">
     <table role="presentation" cellspacing="0" cellpadding="0" align="center"
            style="width:100%;max-width:640px;background:#ffffff;border-radius:12px;
@@ -271,27 +395,56 @@ If you need to change the time, just reply to this email.
   </div>
   `;
 
-  await transporter.sendMail({
-    from: FROM_ADDR,
-    to: params.email,
-    subject: `Booking request received — deposit required to confirm`,
-    text: customerText, // 纯文本
-    html: customerHtml, // HTML 模板
-    replyTo: process.env.ZOHO_SMTP_USER,
-    ...(BCC_OWNER ? { bcc: owner } : {}),
-    attachments: [
-      {
-        filename: "appointment.ics",
-        content: Buffer.from(ics),
-        contentType: "text/calendar; charset=utf-8; method=REQUEST",
-      },
-    ],
-    envelope: {
-      from: process.env.ZOHO_SMTP_USER!,
-      to: [params.email],
-      ...(BCC_OWNER ? { bcc: owner } : {}),
-    },
-  });
+    await sendEmailTracked({
+      eventType: "booking_request",
+      to: params.email,
+      subject: `Booking request received — deposit required to confirm`,
+      text: customerText,
+      html: customerHtml,
+      attachments: [
+        {
+          filename: "appointment.ics",
+          content: Buffer.from(ics),
+          contentType: "text/calendar; charset=utf-8; method=REQUEST",
+        },
+      ],
+      bccOwner: BCC_OWNER,
+      meta,
+    });
+  } catch (customerEmailError: any) {
+    console.error("[email] Customer email failed:", customerEmailError);
+    // 客户邮件失败不影响店家邮件
+  }
+
+  // ===== 再发店家邮件（纯文本，不带附件）=====
+  try {
+    const ownerText = [
+      `New booking request`,
+      ``,
+      `Service:  ${params.service}`,
+      `When:     ${whenStr}  (${durMin} min)`,
+      ``,
+      `Client:   ${params.name}`,
+      `Email:    ${params.email}`,
+      `Phone:    ${params.phone}`,
+      `Notes:    ${params.notes || "-"}`,
+      ``,
+      `Tips:`,
+      `- Reply to this email to contact the client directly (reply-to set).`,
+    ].join("\n");
+
+    await sendEmailTracked({
+      eventType: "booking_request_owner",
+      to: owner,
+      subject: `New booking · ${params.service} · ${whenStr} · ${params.name}`,
+      text: ownerText,
+      replyTo: `${params.name} <${params.email}>`,
+      meta,
+    });
+  } catch (ownerEmailError: any) {
+    console.error("[email] Owner email failed:", ownerEmailError);
+    // 店家邮件失败不影响业务
+  }
 }
 
 // =====================================================
@@ -524,52 +677,53 @@ export async function sendGiftCardUseNotification(params: {
   const amountUsedFormatted = `$${(amountUsed / 100).toFixed(2)}`;
   const newBalanceFormatted = `$${(newBalance / 100).toFixed(2)}`;
 
-  // Build email
+  // Build email - 简洁单色模板（黑白灰）
   const subject = `Gift Card Used - ${amountUsedFormatted}`;
   const html = `
-    <div style="font-family:system-ui, sans-serif; background:#f6f7f9; padding:24px;">
-      <table align="center" style="max-width:600px; background:#fff; padding:24px; border-radius:12px;">
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#f6f7f9; padding:24px;">
+      <table align="center" style="max-width:600px; background:#fff; padding:24px; border-radius:12px; border:1px solid #e5e7eb;">
         <tr>
-          <td align="center">
-            <img src="${SITE_URL}/logo.png" width="96" style="border-radius:8px;" />
-            <h2 style="margin-top:16px;">Hi ${notifyName},</h2>
-            
-            <div style="background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
-                        padding:24px; border-radius:12px; color:white; margin:24px 0;">
-              <div style="font-size:18px; opacity:0.9; margin-bottom:8px;">Transaction</div>
-              <div style="font-size:42px; font-weight:700; margin:12px 0;">
-                ${amountUsedFormatted}
-              </div>
-              <div style="font-size:14px; opacity:0.9;">was used from your gift card</div>
+          <td>
+            <div style="text-align:center; padding-bottom:16px;">
+              <img src="${SITE_URL}/logo.png" width="96" style="border-radius:8px;" />
             </div>
 
-            <div style="background:#f9fafb; border-radius:12px; padding:20px; margin:24px 0; text-align:left;">
+            <h2 style="margin:0 0 8px; font-weight:600; font-size:20px; color:#111;">Hi ${notifyName},</h2>
+            <p style="margin:0 0 24px; color:#6b7280;">A transaction was processed on your gift card.</p>
+
+            <div style="background:#fafafa; border:1px solid #e5e7eb; border-radius:8px; padding:20px; margin:24px 0;">
               <table style="width:100%;">
                 <tr>
+                  <td style="padding:8px 0; color:#6b7280; font-size:14px;">Amount Used:</td>
+                  <td style="padding:8px 0; font-weight:700; font-size:24px; text-align:right; color:#111;">
+                    ${amountUsedFormatted}
+                  </td>
+                </tr>
+                <tr>
                   <td style="padding:8px 0; color:#6b7280; font-size:14px;">Service:</td>
-                  <td style="padding:8px 0; font-weight:600; text-align:right;">${serviceName}</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${serviceName}</td>
                 </tr>
                 <tr>
                   <td style="padding:8px 0; color:#6b7280; font-size:14px;">Date:</td>
-                  <td style="padding:8px 0; font-weight:600; text-align:right;">${new Date().toLocaleDateString()}</td>
+                  <td style="padding:8px 0; font-weight:600; text-align:right; color:#111;">${new Date().toLocaleDateString()}</td>
                 </tr>
-                <tr style="border-top:2px solid #e5e7eb;">
-                  <td style="padding:12px 0 8px; color:#374151; font-weight:600;">Remaining Balance:</td>
-                  <td style="padding:12px 0 8px; font-size:20px; font-weight:700; color:#10b981; text-align:right;">
+                <tr style="border-top:1px solid #e5e7eb;">
+                  <td style="padding:12px 0 0; color:#374151; font-weight:600;">Remaining Balance:</td>
+                  <td style="padding:12px 0 0; font-size:20px; font-weight:700; text-align:right; color:#111;">
                     ${newBalanceFormatted}
                   </td>
                 </tr>
               </table>
             </div>
 
-            <p style="color:#6b7280; font-size:14px; margin:24px 0;">
+            <p style="color:#6b7280; font-size:14px; margin:24px 0 0;">
               Thank you for choosing ${SITE_NAME}!
             </p>
 
-            <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
-            <p style="font-size:12px;color:#999;">
+            <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0"/>
+            <p style="font-size:12px; color:#6b7280;">
               ${SITE_NAME} · ${SITE_ADDRESS} ·
-              <a href="mailto:${CONTACT_EMAIL}" style="color:#999;text-decoration:underline">
+              <a href="mailto:${CONTACT_EMAIL}" style="color:#6b7280; text-decoration:underline">
                 ${CONTACT_EMAIL}
               </a>
             </p>
@@ -579,18 +733,17 @@ export async function sendGiftCardUseNotification(params: {
     </div>
   `;
 
-  // Send email
-  try {
-    await resend.emails.send({
-      from: `${SITE_NAME} <noreply@rejuvenessence.org>`,
-      to: notifyEmail,
-      subject,
-      html,
-    });
-
-    console.log(`[email] Gift card use notification sent to ${notifyEmail}`);
-  } catch (error: any) {
-    console.error(`[email] Failed to send use notification:`, error);
-    // Don't throw - this is not critical
-  }
+  await sendEmailTracked({
+    eventType: "giftcard_use",
+    to: notifyEmail,
+    subject,
+    html,
+    useFallback: false,
+    meta: {
+      gift_card_code: giftCard.code,
+      amount_used: amountUsed,
+      new_balance: newBalance,
+      service_name: serviceName,
+    },
+  });
 }
