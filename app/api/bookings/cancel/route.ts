@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import dayjs from "dayjs";
 
 export async function POST(req: Request) {
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   }
 
   if (refund > 0) {
+    const stripe = getStripeClient();
     await stripe.refunds.create({
       payment_intent: bk.payment_intent_id,
       amount: refund,

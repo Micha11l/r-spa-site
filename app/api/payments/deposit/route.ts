@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     // 2️⃣ 创建 Stripe Checkout Session
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: bk.customer_email || undefined,

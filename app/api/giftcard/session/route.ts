@@ -1,6 +1,6 @@
 // app/api/giftcard/session/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Retrieve the Stripe session
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (!session) {

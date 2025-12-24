@@ -1,7 +1,7 @@
 // app/api/stripe/package-checkout/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import {
-  stripe,
+  getStripeClient,
   stripeMode,
   getLiveTestAmountCents,
   getLiveTestEmails,
@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
       metadata.test_amount_cents = String(unitAmount);
     }
 
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
