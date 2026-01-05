@@ -1,43 +1,62 @@
 # Rejuvenessence — Production Booking + Gift Cards Platform (Next.js + Supabase)
 
-A live, production web app for a private wellness studio: marketing site + appointment booking + gift card purchase, with an internal admin workflow.
+A production web application for a private wellness studio, combining a marketing site, appointment booking, and Stripe-based gift card purchases, with an authenticated internal admin workflow.
 
 ## Live
 - Production: https://rejuvenessence.org  
-- Preview/Staging: https://r-spa-site.vercel.app
+- Preview/Staging: https://r-spa-site.vercel.app  
 
 ---
 
-## Overview
+## Resume-style highlights
+- Built a full-stack booking and gift card platform with Next.js App Router + Supabase (Postgres/Auth/RLS) deployed on Vercel.
+- Implemented booking conflict prevention to avoid time-slot overlaps before confirming reservations.
+- Designed role-based access using Supabase RLS to separate public booking capabilities from admin operations.
+- Delivered transactional email flows (client + owner) including calendar invite (.ics) attachments.
+- Shipped internal admin tooling in the same codebase: bookings management, clients/notes, gift card tracking.
+
+---
+
+## What it does
 
 ### Customer-facing
 - Multi-page marketing site (services, policies, FAQ)
-- Booking flow (service/date/time + customer info → confirmation / cancellation / updates)
-- Automated email notifications (owner + client) with calendar invite (.ics)
-- Gift card purchase flow (Stripe Checkout)
+- Booking flow: service/date/time → customer details → confirmation / cancellation / updates
+- Transactional email notifications (client + owner) with calendar invite (.ics)
+- Gift card purchase via Stripe Checkout
 
-### Admin / internal tools (authenticated)
-- View & manage bookings (status, notes, customer details)
-- Send deposit request emails (payment link / instructions)
-- Client list (visit history / notes)
-- Gift card management (track purchases / issuance)
+### Admin (authenticated)
+- Booking management: status, notes, customer details
+- Deposit request workflow (email-based)
+- Client list with visit history / internal notes
+- Gift card management (purchase tracking / issuance)
 
 ---
 
 ## Tech stack
-- **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS
-- **Backend:** Supabase (Postgres + Auth + RLS policies)
-- **Payments:** Stripe (Gift Cards / Checkout)
-- **Email:** Resend (transactional email + .ics)
-- **Deploy:** Vercel + Supabase
+- **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS  
+- **Backend:** Supabase (Postgres + Auth + RLS)  
+- **Payments:** Stripe (Checkout)  
+- **Email:** Resend (transactional email + .ics attachments)  
+- **Deploy:** Vercel  
 
 ---
 
-## Key engineering highlights
-- **Booking conflict prevention:** validates time-slot overlap before confirming a booking
-- **Access control (RLS):** public booking vs admin read/manage separated by policies
-- **Transactional email reliability:** confirmations + operational emails (with calendar attachment)
-- **Single codebase admin workflow:** operations built into the app (no external admin panel)
+## Architecture (high-level)
+- **Web app (Next.js):** marketing pages + booking UI + admin UI
+- **API routes / server actions:** booking creation/updates, admin operations, email sending
+- **Database (Supabase Postgres):** bookings, clients, gift cards, audit/metadata
+- **Auth + RLS:** authenticated admin workflows with policy-enforced data access
+- **Payments (Stripe):** gift card checkout flow + post-checkout handling
+- **Email (Resend):** confirmation/operational emails + .ics calendar attachment generation
+
+---
+
+## Engineering highlights
+- **Booking conflict prevention:** validates time-slot overlap prior to confirmation
+- **Row-level security (RLS):** clear separation between public booking and admin operations
+- **Reliable transactional emails:** confirmations and operational emails with calendar attachments
+- **Single codebase operations:** admin tooling built into the application (no external admin panel)
 
 ---
 
@@ -62,30 +81,24 @@ A live, production web app for a private wellness studio: marketing site + appoi
 
 ## Local development
 
-### Install
+### Install & run
 ```bash
 npm install
 cp .env.example .env.local
 npm run dev
 ```
-
-### Database (Supabase)
-1. Create a Supabase project
-2. Run `supabase/schema.sql` in the Supabase SQL editor
-3. Configure `.env.local` with Supabase credentials
-
-For detailed setup / troubleshooting, see: `supabase/README_DATABASE_SETUP.md`
-
 ### Environment variables
-Use `.env.example` / `.env.production.example` as references:
-- Supabase public + server keys
-- Resend email keys
-- Stripe keys (and webhook secrets if enabled)
 
-> Never expose Supabase **service role** keys to the client. Keep them server-side only.
+Use .env.example / .env.production.example as references.
+	•	Keep server-only secrets (e.g., Supabase service role key, Stripe secret key, webhook secret) on the server only.
+	•	Do not expose server secrets to the client (avoid NEXT_PUBLIC_ for sensitive values).
 
+### Security & privacy notes
+	•	No production secrets are stored in this repository.
+	•	Operational/internal documentation and database migration assets are intentionally excluded from the public repo.
+	•	Screenshots should be redacted if they contain personal or sensitive information.
 ### Roadmap
-- Deposit payment automation + webhook reconciliation
-- Availability UI fully driven by DB resources
-- Multi-language content
-- Automated tests (unit + e2e)
+	•	Deposit payment automation + webhook reconciliation
+	•	Availability UI fully driven by database resources
+	•	Multi-language content
+	•	Automated tests (unit + e2e)
