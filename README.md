@@ -42,7 +42,6 @@ A live, production web app for a private wellness studio: marketing site + appoi
 ---
 
 ## Screenshots
-Place screenshots in `docs/screenshots/` (redact any personal info).
 
 ### Booking flow
 ![Booking flow](docs/screenshots/booking-flow.png)
