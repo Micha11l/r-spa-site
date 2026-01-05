@@ -20,3 +20,6 @@ logs_result.csv
 
 # Local artifacts
 r-spa-site/
+
+# local vercel env notes
+VERCEL_ENV_*.txt
