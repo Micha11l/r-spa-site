@@ -1,64 +1,50 @@
-# Rejuvenessence – Next.js + Supabase Starter
+# Rejuvenessence — Production Booking + Gift Cards Platform (Next.js + Supabase)
 
-Black & white minimalist private spa website with booking flow.
+A live, production web app for a private wellness studio: marketing site + appointment booking + gift card purchase, with an internal admin workflow.
 
-## Stack
-- Next.js (App Router) + Tailwind + Framer Motion
-- Supabase (Postgres) for bookings
-- Resend for email notifications (+ ICS calendar attachment)
-- Optional Twilio for SMS
-- Deploy: Vercel (front-end) + Supabase (DB)
-- Monitoring: UptimeRobot/BetterStack, Sentry, GA4 (instructions below)
-
-## Quick Start
-
-1) **Create Supabase project** → copy the SQL from `supabase/schema.sql` into SQL editor and run.
-2) **Create Resend API key** (verify sending domain) and note `RESEND_API_KEY`.
-3) **(Optional) Twilio**: get `TWILIO_*` creds if you plan to send SMS.
-4) **Clone & install**
-```bash
-npm i
-cp .env.example .env.local
-# fill env vars
-npm run dev
-```
-5) **Deploy**: push to GitHub and import into Vercel. Set environment variables in Vercel settings. Set `NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_ANON_KEY` from Supabase project settings, and `SUPABASE_SERVICE_ROLE` (Server-side only).
-
-### Environment Variables
-
-See `.env.example` and set:
-- `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE`
-- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_OWNER_EMAIL`
-- `SITE_*` details
-- (Optional) Twilio variables
-
-### Booking Flow
-- POST `/api/book` with { service, date, time, name, email, phone, notes? }
-- Checks overlap; inserts `bookings` row as `pending`
-- Sends emails to owner and client (with `.ics` attachment)
-
-> For advanced rules (deposits, multi-resource, cancellations), extend the DB and API route.
-
-### Styling & Pages
-- Black & white minimalist theme in `app/globals.css`
-- Pages: Home, Services (with your provided price list), Booking, FAQ, Policies
-- `components/` holds UI building blocks
-
-### Analytics & Monitoring
-- **GA4**: set `NEXT_PUBLIC_GA_MEASUREMENT_ID` and add gtag script in `app/layout.tsx` (or Vercel Analytics).
-- **Sentry**: add `@sentry/nextjs`, run `npx @sentry/wizard -i nextjs`, and commit config.
-- **UptimeRobot/BetterStack**: monitor the site URL + `/api/book` POST health with a heartbeat (optionally add a GET `/api/health`).
-
-### Security Notes
-- The API uses Supabase Service Role key server-side only (never expose in client). Vercel server environment is safe.
-- Add rate limiting (e.g., middleware + IP-based limits) and captcha for production.
-- Validate inputs (we use zod).
-
-### Roadmap
-- Add deposit & Stripe payments
-- Owner confirmation endpoint (flip booking from pending → confirmed)
-- Availability UI (fetch from Supabase instead of free text time)
-- Multi-language & image gallery
+**Live**
+- Production: https://rejuvenessence.org
+- Preview/Staging: https://r-spa-site.vercel.app
 
 ---
-© Rejuvenessence
+
+## What this app does (high level)
+
+### Customer-facing
+- Multi-page marketing site (services, therapies, policies, FAQ)
+- Booking flow (service/date/time + customer info → confirmation)
+- Email notifications (owner + client) with calendar invite (.ics)
+- Gift card purchase flow (Stripe Checkout)
+
+### Admin / internal tools (authenticated)
+- View & manage bookings (status, notes, customer details)
+- Send deposit request emails (payment link / instructions)
+- Client list (visit history / notes)
+- Gift card management (track purchases / issuance)
+
+---
+
+## Tech stack
+- **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS, Framer Motion
+- **Backend:** Supabase (Postgres + Auth + RLS policies)
+- **Payments:** Stripe (gift cards / checkout)
+- **Email:** Resend (transactional email + .ics)
+- **Deploy:** Vercel (web) + Supabase (DB)
+
+---
+
+## Key engineering highlights (what I want reviewers to notice)
+- **Booking conflict prevention:** validates time-slot overlap before confirming a booking
+- **Role-based access (RLS):** public booking writes vs admin read/manage separated by policies
+- **Reliable transactional emails:** owner/client notifications with calendar attachment
+- **Admin workflow:** operational tools built into the same codebase (no external admin panel)
+
+---
+
+## Local setup
+
+### 1) Install
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
