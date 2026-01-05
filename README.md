@@ -8,11 +8,11 @@ A live, production web app for a private wellness studio: marketing site + appoi
 
 ---
 
-## What this app does (high level)
+## What this app does
 
 ### Customer-facing
-- Multi-page marketing site (services, therapies, policies, FAQ)
-- Booking flow (service/date/time + customer info → confirmation)
+- Multi-page marketing site (services, policies, FAQ)
+- Booking flow (service/date/time + customer info → confirmation / cancellation / updates)
 - Email notifications (owner + client) with calendar invite (.ics)
 - Gift card purchase flow (Stripe Checkout)
 
@@ -25,26 +25,54 @@ A live, production web app for a private wellness studio: marketing site + appoi
 ---
 
 ## Tech stack
-- **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS, Framer Motion
+- **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS
 - **Backend:** Supabase (Postgres + Auth + RLS policies)
-- **Payments:** Stripe (gift cards / checkout)
+- **Payments:** Stripe (Gift Cards / Checkout)
 - **Email:** Resend (transactional email + .ics)
-- **Deploy:** Vercel (web) + Supabase (DB)
+- **Deploy:** Vercel + Supabase
 
 ---
 
-## Key engineering highlights (what I want reviewers to notice)
+## Key engineering highlights
 - **Booking conflict prevention:** validates time-slot overlap before confirming a booking
-- **Role-based access (RLS):** public booking writes vs admin read/manage separated by policies
-- **Reliable transactional emails:** owner/client notifications with calendar attachment
+- **Access control (RLS):** public booking vs admin read/manage separated by policies
+- **Reliable transactional emails:** confirmations/reminders + calendar attachment
 - **Admin workflow:** operational tools built into the same codebase (no external admin panel)
 
 ---
 
-## Local setup
+## Local development
 
-### 1) Install
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
+### Install
+    npm install
+    cp .env.example .env.local
+    npm run dev
+
+### Database (Supabase)
+1. Create a Supabase project
+2. Run SQL schema in `supabase/schema.sql` (Supabase SQL editor)
+3. Fill `.env.local` with Supabase keys
+
+### Environment variables
+Configure from `.env.example` / `.env.production.example`:
+- Supabase public + server keys
+- Resend email keys
+- Stripe keys (and webhook secrets if enabled)
+
+> Never expose Supabase **service role** keys to the client. Keep them server-side only.
+
+---
+
+## Screenshots (recommended)
+Add screenshots to `docs/screenshots/` (redact any personal info). Then embed them here:
+- Customer booking flow
+- Gift card checkout
+- Admin dashboard (bookings / clients / gift cards)
+
+---
+
+## Roadmap
+- Deposit payment automation + webhook reconciliation
+- Availability UI fully driven by DB resources
+- Multi-language content
+- Automated tests (unit + e2e)
