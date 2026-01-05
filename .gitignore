@@ -17,3 +17,6 @@ VERCEL_ENV_CORRECTED.txt
 PRODUCTION_ERRORS_DIAGNOSIS.md
 safety_password.md
 logs_result.csv
+
+# Local artifacts
+r-spa-site/
