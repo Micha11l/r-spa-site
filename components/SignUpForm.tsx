@@ -23,7 +23,7 @@ type Form = {
   marketing_email?: boolean;
 };
 
-export default function SignUpClient() {
+export default function SignUpForm() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<"form" | "code">("form");

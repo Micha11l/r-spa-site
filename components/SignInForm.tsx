@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignInClient() {
+export default function SignInForm() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
