@@ -1,5 +1,7 @@
 # Rejuvenessence — Production Booking + Gift Cards Platform (Next.js + Supabase)
 
+> 🇨🇳 **[中文版文档](./README.zh-CN.md)** | 🌐 **Live:** [rejuvenessence.org](https://rejuvenessence.org)
+
 A production web application for a private wellness studio, combining a marketing site, appointment booking, and Stripe-based gift card purchases, with an authenticated internal admin workflow.
 
 ## Live
@@ -48,7 +50,7 @@ A production web application for a private wellness studio, combining a marketin
 - **Database (Supabase Postgres):** bookings, clients, gift cards, audit/metadata
 - **Auth + RLS:** authenticated admin workflows with policy-enforced data access
 - **Payments (Stripe):** gift card checkout flow + post-checkout handling
-- **Email (Resend):** confirmation/operational emails + .ics calendar attachment generation
+- **Email:** Zoho SMTP + Resend fallback, confirmation/operational emails + .ics attachments
 
 ---
 
@@ -96,11 +98,11 @@ Use `.env.example` / `.env.production.example` as references.
 - Do not expose server secrets to the client (avoid `NEXT_PUBLIC_` for sensitive values)
 
 ### Security & privacy notes
-	•	No production secrets are stored in this repository.
-	•	Operational/internal documentation and database migration assets are intentionally excluded from the public repo.
-	•	Screenshots should be redacted if they contain personal or sensitive information.
+- No production secrets are stored in this repository
+- Operational/internal documentation and database migration assets are intentionally excluded
+- Screenshots should be redacted if they contain personal or sensitive information
+
 ### Roadmap
-	•	Deposit payment automation + webhook reconciliation
-	•	Availability UI fully driven by database resources
-	•	Multi-language content
-	•	Automated tests (unit + e2e)
+- Availability UI fully driven by database resources
+- Multi-language content
+- Automated tests (unit + e2e)
