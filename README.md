@@ -35,10 +35,10 @@ A production web application for a private wellness studio, combining a marketin
 
 ## Tech stack
 - **Frontend:** Next.js (App Router), React, TypeScript, TailwindCSS  
-- **Backend:** Supabase (Postgres + Auth + RLS)  
-- **Payments:** Stripe (Checkout)  
-- **Email:** Resend (transactional email + .ics attachments)  
-- **Deploy:** Vercel  
+- **Backend:** Supabase (Postgres + Auth + RLS + RPC), Next.js API Routes, Zod validation
+- **Payments:** Stripe Checkout + Webhook (with idempotency handling)
+- **Email:** Zoho SMTP + Resend fallback, outbox audit trail, .ics attachments
+- **Deploy:** Vercel
 
 ---
 
@@ -53,10 +53,12 @@ A production web application for a private wellness studio, combining a marketin
 ---
 
 ## Engineering highlights
-- **Booking conflict prevention:** validates time-slot overlap prior to confirmation
-- **Row-level security (RLS):** clear separation between public booking and admin operations
-- **Reliable transactional emails:** confirmations and operational emails with calendar attachments
-- **Single codebase operations:** admin tooling built into the application (no external admin panel)
+- **Booking conflict prevention:** SQL overlap query blocks conflicting time slots before confirmation
+- **Row-level security (RLS):** user data isolation + server-side privileged operations with audit
+- **Payment idempotency:** webhook handlers use idempotency keys to prevent duplicate processing
+- **Auditable email system:** dual-channel delivery (Zoho + Resend), all sends logged to outbox for troubleshooting
+- **Gift card state machine:** secure redemption flow (unique code + temp token + 2-step verify/execute)
+- **Single codebase:** admin tooling built-in (calendar, booking management, gift card ops)
 
 ---
 
@@ -88,10 +90,10 @@ cp .env.example .env.local
 npm run dev
 ```
 ### Environment variables
+Use `.env.example` / `.env.production.example` as references.
 
-Use .env.example / .env.production.example as references.
-	•	Keep server-only secrets (e.g., Supabase service role key, Stripe secret key, webhook secret) on the server only.
-	•	Do not expose server secrets to the client (avoid NEXT_PUBLIC_ for sensitive values).
+- Keep server-only secrets (e.g., Supabase service role key, Stripe secret key) on the server only
+- Do not expose server secrets to the client (avoid `NEXT_PUBLIC_` for sensitive values)
 
 ### Security & privacy notes
 	•	No production secrets are stored in this repository.
